@@ -95,10 +95,13 @@ func Handlers() *gin.Engine {
 	r.Use(cors.New(config))
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-	config := cors.DefaultConfig()
+
 	config.AllowAllOrigins = true
 	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	r.Use(cors.New(config))
+
+	// List all realms 
+	r.GET("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleList())
 
 	// Create a realm, an admin user and init necessery clients
 	r.POST("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleCreate())
