@@ -3,21 +3,55 @@ package units
 import (
 	"fmt"
 	"net/http"
+
 	"os"
 
+	"api.ducluong.monster/core"
 	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 type createUnitInp struct {
-	UnitName string `json:"unit_name"`
+	UnitName      string `json:"unit_name"`
+	DisplayName   string `json:"display_name"`
+	Description   string `json:"description"`
+	ParentUnit    string `json:"parent_unit"`
 	AdminUsername string `json:"admin_username"`
 	AdminPassword string `json:"admin_password"`
 }
 
+// func makePutRequest(realm string, clientScopeID string, mapperID string) (int, error) {
+// 	// Set the URL and request body
+	
+// 	url := fmt.Sprintf("https://sso.ducluong.monster/admin/realms/%s/client-scopes/%s/protocol-mappers/models/%s", realm, clientScopeID, mapperID)
+// 	body := []byte(`{"name": "John", "age": 30}`)
+
+// 	// Create a new HTTP client and request
+// 	client := &http.Client{}
+// 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	}
+
+// 	// Set the request headers
+// 	req.Header.Set("Content-Type", "application/json")
+
+// 	// Send the request and get the response
+// 	resp, err := client.Do(req)
+// 	if err != nil {
+// 		fmt.Println(err)
+// 		return
+// 	}
+
+// 	defer resp.Body.Close()
+// }
+
 func HandleCreate() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var inp createUnitInp;
+		var inp createUnitInp
 
 		err := ctx.Bind(&inp)
 		if err != nil {
@@ -33,8 +67,8 @@ func HandleCreate() gin.HandlerFunc {
 		}
 
 		// Create a new realm
-		_, err = client.CreateRealm(ctx, token.AccessToken, gocloak.RealmRepresentation{
-			Realm: &inp.UnitName,
+		realmID, err := client.CreateRealm(ctx, token.AccessToken, gocloak.RealmRepresentation{
+			Realm:   &inp.UnitName,
 			Enabled: gocloak.BoolP(true),
 		})
 
@@ -46,7 +80,7 @@ func HandleCreate() gin.HandlerFunc {
 		// Create a new user
 		userID, err := client.CreateUser(ctx, token.AccessToken, inp.UnitName, gocloak.User{
 			Username: &inp.AdminUsername,
-			Enabled: gocloak.BoolP(true),
+			Enabled:  gocloak.BoolP(true),
 		})
 
 		if err != nil {
@@ -61,11 +95,11 @@ func HandleCreate() gin.HandlerFunc {
 		}
 
 		// Create realm roles for this new realm (unit_admin, unit_user)
-		REALM_ROLES := []string{"unit_admin", "unit_user"}
+		REALM_ROLES := []string{"unit_admin", "unit_normal"}
 
 		for _, role := range REALM_ROLES {
 			_, err = client.CreateRealmRole(ctx, token.AccessToken, inp.UnitName, gocloak.Role{
-				Name: &role,	
+				Name: &role,
 			})
 
 			if err != nil {
@@ -92,7 +126,7 @@ func HandleCreate() gin.HandlerFunc {
 
 		// create console client
 		_, err = client.CreateClient(ctx, token.AccessToken, inp.UnitName, gocloak.Client{
-			ClientID: gocloak.StringP("console"),
+			ClientID:     gocloak.StringP("console"),
 			PublicClient: gocloak.BoolP(true),
 			RedirectURIs: &[]string{
 				fmt.Sprintf("https://%s.ducluong.monster/*", inp.UnitName),
@@ -101,8 +135,73 @@ func HandleCreate() gin.HandlerFunc {
 				fmt.Sprintf("https://%s.ducluong.monster", inp.UnitName),
 			},
 		})
+
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+
+		// find client scope: role
+		clientScopes, err := client.GetClientScopes(ctx, token.AccessToken, inp.UnitName)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+
+		for _, clientScope := range clientScopes {
+			if *clientScope.Name == "roles" {
+				for _, mapper := range *clientScope.ProtocolMappers {
+					if *mapper.Name == "realm roles" {
+						mapper.ProtocolMappersConfig.ClaimName = gocloak.StringP("roles")
+						mapper.ProtocolMappersConfig.UserinfoTokenClaim = gocloak.StringP("true")
+
+						err := client.UpdateClientScopeProtocolMapper(ctx, token.AccessToken, inp.UnitName, *clientScope.ID, mapper)
+
+						if err != nil {
+							ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+							return
+						}
+
+						break
+					}
+				}
+			}
+		}
+
+		// Save unit org structure
+		db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/metadata"))
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+
+		err = db.AutoMigrate(&core.Unit{})
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+
+		// get current requesting user
+		user, exits := ctx.Get("user")
+		if !exits {
+			ctx.AbortWithStatus(500)
+			return
+		}
+
+		unit_url := fmt.Sprintf("%s.ducluong.monster", inp.UnitName)
+
+		result := db.Create(core.Unit{
+			RealmID:     realmID,
+			OwnerID:     user.(core.User).ID,
+			Name:        inp.UnitName,
+			DisplayName: inp.DisplayName,
+			Description: inp.Description,
+			URL:         unit_url,
+			ParentName:  &inp.ParentUnit,
+		})
+
+		if result.Error != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": result.Error.Error()})
 			return
 		}
 
