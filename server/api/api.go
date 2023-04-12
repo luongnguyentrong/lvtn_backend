@@ -127,7 +127,7 @@ func Handlers() *gin.Engine {
 			"message": "pong",
 		})
 	})
-
+	r.PUT("/units/:unit_name/tables/:table_name", func(ctx *gin.Context) {})
 	r.GET("/show_tables",func(ctx *gin.Context) {
 		blockName := ctx.Request.URL.Query().Get("block_name")
 		db := OpenConnect(blockName)
