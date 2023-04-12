@@ -14,8 +14,26 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+var errorUserNotFound = errors.New("user not found")
+
+func getUnit(host string) string {
+	res := strings.Split(host, ".")
+
+	if os.Getenv("GO_ENV") == "development" {
+		return "master"
+	}
+
+	if len(res) == 3 {
+		return res[0]
+	} else if len(res) == 2 {
+		return "master"
+	}
+
+	return ""
+}
+
 func verifyToken(token string, ctx *gin.Context) (bool, error) {
-	unit_name := "hcmut"
+	unit_name := getUnit(ctx.Request.Host)
 
 	INTROSPECT_ENDPOINT := fmt.Sprintf("https://sso.ducluong.monster/realms/%s/protocol/openid-connect/token/introspect", unit_name)
 
@@ -37,8 +55,6 @@ func verifyToken(token string, ctx *gin.Context) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	fmt.Println(introspectionResp)
 
 	ctx.Set("user", introspectionResp)
 
@@ -82,5 +98,26 @@ func Protected() gin.HandlerFunc {
 
 		// Call the next handler
 		ctx.Next()
+	}
+}
+
+func AllowedRoles(roles ...string) gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		user, exists := ctx.Get("user")
+		if !exists {
+			ctx.AbortWithError(http.StatusUnauthorized, errorUserNotFound)
+			return
+		}
+
+		for _, allowedRole := range roles {
+			for _, userRole := range user.(core.User).Roles {
+				if allowedRole == userRole {
+					ctx.Next()
+					return
+				}
+			}
+		}
+
+		ctx.Status(401)
 	}
 }

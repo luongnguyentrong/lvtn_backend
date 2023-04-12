@@ -109,23 +109,18 @@ func Handlers() *gin.Engine {
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
 
+	config.AllowAllOrigins = true
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	r.Use(cors.New(config))
+
+	// List all realms 
+	r.GET("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleList())
+
 	// Create a realm, an admin user and init necessery clients
-	r.POST("/units", middleware.Protected(), units.HandleCreate())
+	r.POST("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleCreate())
 
-	// Define tables for a unit
-	r.POST("/units/:unit_name/tables", func(ctx *gin.Context) {
-		// create a table in postgres
-
-		// save table info to datbase
-	})
-
-	// Insert values to a table 
-	r.PUT("/units/:unit_name/tables/:table_name", func(ctx *gin.Context) {
-		// insert values to the table in postgres
-
-		// save insert data to database
-
-	})
+	// Get the org structure of the current requesting unit
+	r.GET("/units/org", middleware.Protected(), units.HandleListOrg())
 
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -224,6 +219,7 @@ func Handlers() *gin.Engine {
 
 	r.POST("/create_tables",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("name")
+		name = "hcmut_" +name
 		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
 		if err != nil {
 			panic(err)
