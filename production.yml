@@ -12,15 +12,31 @@ services:
       - KEYCLOAK_DATABASE_PASSWORD=Wjd4nw37wJu9bAsvBv3Mn8byew7URykL
     depends_on:
       - postgresql
+      - nginx
 
-  # nginx:
-  #   image: nginx:mainline-alpine-slim
-  #   volumes:
-  #   #   - ${PWD}/nginx.conf:/etc/nginx/nginx.conf
-  #   #   - ${PWD}/certs:/etc/letsencrypt
-  #   ports:
-  #     - 443:443
-  #     - 80:80
+  nginx:
+    image: nginx:mainline-alpine-slim
+    volumes:
+      - ${PWD}/nginx.conf:/etc/nginx/nginx.conf
+      - ${PWD}/certs/certs:/etc/letsencrypt
+    ports:
+      - 443:443
+      - 80:80
+    depends_on:
+      - keycloak
+      - client
+      - api
+      - postgresql
+
+  api: 
+    image: ducluongvn/api
+    depends_on:
+      - postgresql
+
+  client:
+    image: ghcr.io/luongnguyentrong/lvtn_client:master
+    depends_on:
+      - keycloak
 
   postgresql:
     image: postgres:15.2-alpine3.17
@@ -32,3 +48,5 @@ services:
 
     volumes:
       - ${PWD}/postgres_init.sql:/docker-entrypoint-initdb.d/postgres_init.sql
+    ports:
+      - 5432:5432
