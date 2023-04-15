@@ -34,7 +34,7 @@ type User struct{
 	Lastname string
 }
 const (
-  host     = "68.183.238.254"
+  host     = "159.223.66.111"
   port     = 5432
   user     = "khoa"
   password = "7jySGi9Yj6jX9A12lijb5wsPntUiPdU8"
@@ -52,7 +52,7 @@ func OpenConnect(dbname string) *sql.DB{
 }
 
 func CreateDb(dbname string,) {
-	db := OpenConnect("lvtn")
+	db := OpenConnect("postgres")
 	_, err := db.Exec(`CREATE DATABASE "` + dbname + `"`)
 	if err != nil {
     log.Fatal(err)
@@ -184,7 +184,9 @@ func Handlers() *gin.Engine {
 				dblist = append(dblist,datname)
 			}
 		}
-		fmt.Println(dblist)
+		ctx.JSON(http.StatusOK, gin.H{
+			"body": dblist,
+		})
 	})
 
 	return r
