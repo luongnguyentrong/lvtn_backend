@@ -64,21 +64,6 @@ func OpenConnect(dbname string) *sql.DB{
 	return db
 }
 
-func checkDBExists(dbName string) bool {
-    db := OpenConnect("postgres")
-    defer db.Close()
-
-    var exists bool
-    query := fmt.Sprintf("SELECT EXISTS(SELECT datname FROM pg_catalog.pg_database WHERE datname='%s')", dbName)
-    err := db.QueryRow(query).Scan(&exists)
-    if err != nil {
-        fmt.Println(err)
-        return false
-    }
-
-    return exists
-}
-
 func CreateDb(dbname string,) {
 	db := OpenConnect("postgres")
 	_, err := db.Exec(`CREATE DATABASE "` + dbname + `"`)
@@ -234,7 +219,7 @@ func Handlers() *gin.Engine {
 
 	r.POST("/create_tables",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("name")
-		name = "hcmut_" +name
+		// name = "hcmut_" +name
 		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
 		if err != nil {
 			panic(err)
@@ -250,7 +235,7 @@ func Handlers() *gin.Engine {
 	})
 
 	r.POST("/add_des", func(ctx *gin.Context){
-		name := "hcmut_meta"
+		name := "hcmut_metadata"
 		db := OpenConnect(name)
 		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
 		if err != nil {
@@ -267,7 +252,7 @@ func Handlers() *gin.Engine {
 	})
 
 	r.POST("/add_users", func(ctx *gin.Context){
-		name := "hcmut_meta"
+		name := "hcmut_metadata"
 		block := ctx.Request.URL.Query().Get("block")
 		db := OpenConnect(name)
 		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
@@ -290,7 +275,7 @@ func Handlers() *gin.Engine {
 		name := ctx.Request.URL.Query().Get("name")
 		name = name + "_user"
 		db := OpenConnect("keycloak")
-		sql := `SELECT username FROM user_entity as u, user_role_mapping as m WHERE u.id = m.user_id AND m.role_id='3cc1a1b7-83fc-468e-8ff1-36e5654b3f6f';`
+		sql := `SELECT username FROM user_entity as u, user_role_mapping as m WHERE u.id = m.user_id AND m.role_id='ced8dca4-72f0-4e77-ad98-1ae94b79e2c8';`
 		rows, err := db.Query(sql)
 		if err != nil {
 			panic(err)
@@ -314,10 +299,24 @@ func Handlers() *gin.Engine {
 		})
 	})
 
-	r.GET("/exists",func(ctx *gin.Context) {
+	r.GET("/show_criteria", func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("block")
-		exist := checkDBExists(name)
-		fmt.Println(exist)
+		db := OpenConnect("hcmut_metadata")
+		sql := `SELECT description FROM block_info WHERE block_name ='` + name + `'`
+		rs, err := db.Query(sql)
+		if err != nil {
+			panic(err)
+		}
+		var response string
+		for rs.Next() {
+		err = rs.Scan(&response)
+		if err != nil {
+			panic(err)
+		}
+		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"body": response,
+		})
 	})
 
 	r.GET("/show_folders",func(ctx *gin.Context) {
