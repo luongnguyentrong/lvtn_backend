@@ -39,6 +39,10 @@ type TableRow struct {
 	Row interface{} `json:"row"`
 }
 
+type Update struct{
+	Old string `json:"old"`
+	New string `json:"new"`
+}
 
 type BlockInfo struct{
 	BlockName string	`json:"name"`
@@ -251,6 +255,7 @@ func Handlers() *gin.Engine {
 		db.Exec(sql)
 	})
 
+
 	r.POST("/add_users", func(ctx *gin.Context){
 		name := "hcmut_metadata"
 		block := ctx.Request.URL.Query().Get("block")
@@ -318,6 +323,55 @@ func Handlers() *gin.Engine {
 			"body": response,
 		})
 	})
+
+	r.DELETE("/delete", func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect("postgres")
+		sql := "DROP DATABASE " + name
+		_, err := db.Exec(sql)
+		if err != nil {
+			log.Fatal(err)
+		}
+	})
+
+	r.POST("/edit_colname",func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect(name)
+		table := ctx.Request.URL.Query().Get("table")
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			panic(err)
+		}
+		var update Update
+		err = json.Unmarshal(requestBody, &update)
+		if err != nil {
+			panic(err)
+		}
+		sql := "ALTER TABLE " + table + " RENAME COLUMN "+ update.Old +" to "+ update.New
+		_, err = db.Exec(sql)
+		if err != nil {
+			log.Fatal(err)
+		}
+	})
+
+	r.POST("/edit_criteria",func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		newDes := ctx.Request.URL.Query().Get("new")
+		db := OpenConnect("hcmut_metadata")
+		sql := `UPDATE block_info SET description = '`+ newDes+`' WHERE block_name = '` + name +`'`
+		fmt.Println(sql)
+		_, err := db.Exec(sql)
+		if err != nil {
+			log.Fatal(err)
+		}
+	})
+
+	// r.POST("/add_col",func(ctx *gin.Context) {
+	// 	name := ctx.Request.URL.Query().Get("block")
+	// 	table := ctx.Request.URL.Query().Get("table")
+	// 	db := OpenConnect(name)
+	// 	sql := "ALTER TABLE table1 RENAME COLUMN col1 to newcol;"
+	// })
 
 	r.GET("/show_folders",func(ctx *gin.Context) {
 		sql := "SELECT datname FROM pg_database"
