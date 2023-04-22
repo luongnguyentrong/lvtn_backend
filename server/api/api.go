@@ -74,6 +74,7 @@ func CreateDb(dbname string,) {
 	if err != nil {
     log.Fatal(err)
 }
+	db.Close()
 }
 
 func CreateTable(dbname string,name string, cols []string, des []string){
@@ -102,6 +103,7 @@ func CreateTable(dbname string,name string, cols []string, des []string){
 		}
 		fmt.Println(sql)
 	}
+	db.Close()
 }
 
 func Handlers() *gin.Engine {
@@ -152,6 +154,7 @@ func Handlers() *gin.Engine {
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": tablist,
 		})
+		db.Close()
 	})
 
 	r.GET("/show_inside",func(ctx *gin.Context) {
@@ -212,6 +215,7 @@ func Handlers() *gin.Engine {
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": []interface{}{columnNamesJSON, rowsJSON, columnNames},
 		})
+		db.Close()
 	})
 
 	r.POST("/create_block",func(ctx *gin.Context) {
@@ -253,6 +257,7 @@ func Handlers() *gin.Engine {
 		sql := `INSERT INTO block_info (block_name,  display_name, description) VALUES (`
 		sql = sql +`'`+ blockInfo.BlockName+ `', '` + blockInfo.DisplayName + `', '` + blockInfo.Descriptrion + `')`;
 		db.Exec(sql)
+		db.Close()
 	})
 
 
@@ -274,6 +279,7 @@ func Handlers() *gin.Engine {
 			sql = sql +`'`+ ele + `', '` + block + `')`;
 			db.Exec(sql)
 		}
+		db.Close()
 	})
 
 	r.POST("/show_user",func(ctx *gin.Context) {
@@ -302,6 +308,7 @@ func Handlers() *gin.Engine {
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": rowss,
 		})
+		db.Close()
 	})
 
 	r.GET("/show_criteria", func(ctx *gin.Context) {
@@ -322,6 +329,7 @@ func Handlers() *gin.Engine {
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": response,
 		})
+		db.Close()
 	})
 
 	r.DELETE("/delete", func(ctx *gin.Context) {
@@ -332,6 +340,7 @@ func Handlers() *gin.Engine {
 		if err != nil {
 			log.Fatal(err)
 		}
+		db.Close()
 	})
 
 	r.POST("/edit_colname",func(ctx *gin.Context) {
@@ -352,6 +361,7 @@ func Handlers() *gin.Engine {
 		if err != nil {
 			log.Fatal(err)
 		}
+		db.Close()
 	})
 
 	r.POST("/edit_criteria",func(ctx *gin.Context) {
@@ -364,6 +374,7 @@ func Handlers() *gin.Engine {
 		if err != nil {
 			log.Fatal(err)
 		}
+		db.Close()
 	})
 
 	// r.POST("/add_col",func(ctx *gin.Context) {
@@ -394,6 +405,7 @@ func Handlers() *gin.Engine {
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": dblist,
 		})
+		db.Close()
 	})
 
 	return r
