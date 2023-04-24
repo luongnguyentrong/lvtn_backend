@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"api.ducluong.monster/api/units"
@@ -37,6 +38,18 @@ type User struct{
 type TableRow struct {
 	Key int         `json:"key"`
 	Row interface{} `json:"row"`
+}
+
+type AddRow struct{
+	Name string `json:"name"`
+	Value []interface{} `json:"value"`
+	Col []string `json:"col"`
+}
+
+type RowChange struct {
+	Name string		`json:"table"`
+	Change json.RawMessage  `json:"change"`
+	Cond interface{} 	`json:"cond"`
 }
 
 type Update struct{
@@ -260,6 +273,46 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
+	r.POST("/add_data",func(ctx *gin.Context) {
+		block := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect(block)
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			panic(err)
+		}
+		var info AddRow
+		err = json.Unmarshal(requestBody, &info)
+		if err != nil {
+			panic(err)
+		}
+		sql := `INSERT INTO ` + info.Name + " (id, "
+		for _,ele := range info.Col {
+			sql = sql + ele + ", "
+		}
+		sql = sql[:len(sql)-2]
+		sql = sql + ") VALUES ("
+		for _,ele1 := range info.Value{
+			var cond1 string
+			switch v := ele1.(type) {
+			case float64:
+				cond1 = strconv.FormatFloat(v, 'f', -1, 64)
+				sql = sql + cond1 + ", "
+			case int:
+				cond1 = strconv.Itoa(v)
+				sql = sql + cond1 + ", "
+			case string:
+				cond1 = v
+				sql = sql +`'` + cond1+`'` + ", "
+			default:
+				// Handle the case where the value is not a supported type
+			}
+		}
+		sql = sql[:len(sql)-2]
+		sql = sql + ")"
+		// fmt.Println(sql)
+		db.Exec(sql)
+		db.Close()
+	})
 
 	r.POST("/add_users", func(ctx *gin.Context){
 		name := "hcmut_metadata"
@@ -383,6 +436,50 @@ func Handlers() *gin.Engine {
 	// 	db := OpenConnect(name)
 	// 	sql := "ALTER TABLE table1 RENAME COLUMN col1 to newcol;"
 	// })
+ 
+	r.POST("/edit_row",func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect(name)
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var info RowChange
+		err = json.Unmarshal(requestBody, &info)
+		if err != nil {
+			panic(err)
+		}
+		var extractedData map[string]interface{}
+		if err := json.Unmarshal(info.Change, &extractedData); err != nil {
+			log.Fatal(err)
+		}
+		keys := make([]string, 0, len(extractedData))
+			for key := range extractedData {
+				keys = append(keys, key)
+			}
+		sql := `UPDATE `+ info.Name + ` SET `
+		for _,key := range keys {
+			value := extractedData[key]
+			add := value.(string)
+			sql = sql + key + ` = ` + `'`  + add + `' ` +`, `
+		}
+		sql = sql[:len(sql)-2]
+		cond := info.Cond
+		var cond1 string
+		switch v := cond.(type) {
+		case float64:
+			cond1 = strconv.FormatFloat(v, 'f', -1, 64)
+		case int:
+			cond1 = strconv.Itoa(v)
+		case string:
+			cond1 = v
+		default:
+			// Handle the case where the value is not a supported type
+		}
+		sql = sql + "WHERE id = " + cond1
+		db.Exec(sql)
+		db.Close()
+	})
 
 	r.GET("/show_folders",func(ctx *gin.Context) {
 		sql := "SELECT datname FROM pg_database"
