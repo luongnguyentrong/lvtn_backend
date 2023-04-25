@@ -417,6 +417,8 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
+	
+
 	r.POST("/edit_criteria",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("block")
 		newDes := ctx.Request.URL.Query().Get("new")
@@ -436,7 +438,18 @@ func Handlers() *gin.Engine {
 	// 	db := OpenConnect(name)
 	// 	sql := "ALTER TABLE table1 RENAME COLUMN col1 to newcol;"
 	// })
- 
+	
+	r.DELETE("/delete_row",func(ctx *gin.Context) {
+		block := ctx.Request.URL.Query().Get("block")
+		table := ctx.Request.URL.Query().Get("table")
+		id := ctx.Request.URL.Query().Get("id")
+		db := OpenConnect(block)
+		sql := `DELETE FROM ` + table + ` WHERE id = ` + id + ``
+		fmt.Println(sql)
+		db.Exec(sql)
+		db.Close()
+	})
+
 	r.POST("/edit_row",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("block")
 		db := OpenConnect(name)
