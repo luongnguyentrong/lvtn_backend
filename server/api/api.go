@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -11,8 +12,14 @@ import (
 	"strconv"
 	"strings"
 
+	"os"
 	"api.ducluong.monster/api/units"
 	"api.ducluong.monster/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
@@ -120,17 +127,18 @@ func CreateTable(dbname string,name string, cols []string, des []string){
 }
 
 func Handlers() *gin.Engine {
+	
 	r := gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-	r.Use(cors.New(config))
+	config1 := cors.DefaultConfig()
+	config1.AllowAllOrigins = true
+	config1.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	r.Use(cors.New(config1))
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-
-	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-	r.Use(cors.New(config))
+		
+	config1.AllowAllOrigins = true
+	config1.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	r.Use(cors.New(config1))
 
 	// List all realms 
 	r.GET("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleList())
@@ -164,6 +172,7 @@ func Handlers() *gin.Engine {
 			}
 			tablist = append(tablist, datname)
 		}
+		
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": tablist,
 		})
@@ -450,6 +459,15 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
+	r.DELETE("/delete_table",func(ctx *gin.Context) {
+		block := ctx.Request.URL.Query().Get("block")
+		table := ctx.Request.URL.Query().Get("table")
+		db := OpenConnect(block)
+		sql := `DROP TABLE `+ table
+		db.Exec(sql)
+		db.Close()
+	})
+
 	r.POST("/edit_row",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("block")
 		db := OpenConnect(name)
@@ -508,7 +526,7 @@ func Handlers() *gin.Engine {
 			if err != nil {
 				panic(err)
 			}
-			if strings.Contains(datname,"hcmut_") && datname != "hcmut_user" {
+			if strings.Contains(datname,"hcmut_") && datname != "hcmut_user" && datname != "hcmut_metadata" {
 				dblist = append(dblist,datname)
 			}
 		}
@@ -517,6 +535,68 @@ func Handlers() *gin.Engine {
 		})
 		db.Close()
 	})
+
+	r.GET("/show_folders_normal",func(ctx *gin.Context) {
+		user := ctx.Request.URL.Query().Get("user")
+		sql := `SELECT blocks FROM user_permission WHERE username = '` + user +`'`
+		db := OpenConnect("hcmut_metadata")
+		dbs, err := db.Query(sql)
+		var dblist []string;
+		if err != nil {
+			panic(err)
+		}
+		for dbs.Next() {
+			var datname string; 
+			err = dbs.Scan(&datname)
+			if err != nil {
+				panic(err)
+			}
+			if strings.Contains(datname,"hcmut_") && datname != "hcmut_user" && datname != "hcmut_metadata" {
+				dblist = append(dblist,datname)
+			}
+		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"body": dblist,
+		})
+		db.Close()
+	})
+
+// 	r.OPTIONS("/upload_files", func(c *gin.Context) {
+//     c.Header("Access-Control-Allow-Origin", "*")
+//     c.Header("Access-Control-Allow-Methods", "POST")
+//     c.Header("Access-Control-Allow-Headers", "Content-Type")
+//     c.Header("Access-Control-Max-Age", "86400") // Optional, max age for preflight response (in seconds)
+//     c.Status(http.StatusOK)
+//   })
+
+	r.POST("/upload_files",func(ctx *gin.Context) {
+		file, err:= ctx.FormFile("upload")
+		if err != nil {
+			panic(err)
+		}
+		cfg, err := config.LoadDefaultConfig(context.TODO(), 
+	config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACESS_KEY"),"")),
+	)
+		if err != nil {
+			log.Printf("error: %v", err)
+			return
+		}
+		f, err := file.Open()
+		if err != nil {
+			log.Printf("error: %v", err)
+			return
+		}
+		client := s3.NewFromConfig(cfg)
+		uploader := manager.NewUploader(client)
+		folder := "hcmut"
+		objectKey := folder + "/" + file.Filename
+		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
+			Bucket: aws.String("lvtnstorage"),
+			Key:    aws.String(objectKey),
+			Body:   f,
+		})
+		fmt.Println(result)
+		})
 
 	return r
 }
