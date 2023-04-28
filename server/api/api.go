@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -8,10 +9,17 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
+	"os"
 	"api.ducluong.monster/api/units"
 	"api.ducluong.monster/middleware"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/feature/s3/manager"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
@@ -39,6 +47,22 @@ type TableRow struct {
 	Row interface{} `json:"row"`
 }
 
+type AddRow struct{
+	Name string `json:"name"`
+	Value []interface{} `json:"value"`
+	Col []string `json:"col"`
+}
+
+type RowChange struct {
+	Name string		`json:"table"`
+	Change json.RawMessage  `json:"change"`
+	Cond interface{} 	`json:"cond"`
+}
+
+type Update struct{
+	Old string `json:"old"`
+	New string `json:"new"`
+}
 
 type BlockInfo struct{
 	BlockName string	`json:"name"`
@@ -47,7 +71,7 @@ type BlockInfo struct{
 }
 
 const (
-  host     = "68.183.238.254"
+  host     = "159.223.66.111"
   port     = 5432
   user     = "khoa"
   password = "7jySGi9Yj6jX9A12lijb5wsPntUiPdU8"
@@ -65,11 +89,12 @@ func OpenConnect(dbname string) *sql.DB{
 }
 
 func CreateDb(dbname string,) {
-	db := OpenConnect("lvtn")
+	db := OpenConnect("postgres")
 	_, err := db.Exec(`CREATE DATABASE "` + dbname + `"`)
 	if err != nil {
     log.Fatal(err)
 }
+	db.Close()
 }
 
 func CreateTable(dbname string,name string, cols []string, des []string){
@@ -98,20 +123,22 @@ func CreateTable(dbname string,name string, cols []string, des []string){
 		}
 		fmt.Println(sql)
 	}
+	db.Close()
 }
 
 func Handlers() *gin.Engine {
+	
 	r := gin.Default()
-	config := cors.DefaultConfig()
-	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-	r.Use(cors.New(config))
+	config1 := cors.DefaultConfig()
+	config1.AllowAllOrigins = true
+	config1.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	r.Use(cors.New(config1))
 	r.Use(gin.Logger())
 	r.Use(gin.Recovery())
-
-	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
-	r.Use(cors.New(config))
+		
+	config1.AllowAllOrigins = true
+	config1.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	r.Use(cors.New(config1))
 
 	// List all realms 
 	r.GET("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleList())
@@ -145,9 +172,11 @@ func Handlers() *gin.Engine {
 			}
 			tablist = append(tablist, datname)
 		}
+		
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": tablist,
 		})
+		db.Close()
 	})
 
 	r.GET("/show_inside",func(ctx *gin.Context) {
@@ -208,6 +237,7 @@ func Handlers() *gin.Engine {
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": []interface{}{columnNamesJSON, rowsJSON, columnNames},
 		})
+		db.Close()
 	})
 
 	r.POST("/create_block",func(ctx *gin.Context) {
@@ -219,7 +249,7 @@ func Handlers() *gin.Engine {
 
 	r.POST("/create_tables",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("name")
-		name = "hcmut_" +name
+		// name = "hcmut_" +name
 		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
 		if err != nil {
 			panic(err)
@@ -235,7 +265,7 @@ func Handlers() *gin.Engine {
 	})
 
 	r.POST("/add_des", func(ctx *gin.Context){
-		name := "hcmut_meta"
+		name := "hcmut_metadata"
 		db := OpenConnect(name)
 		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
 		if err != nil {
@@ -249,10 +279,52 @@ func Handlers() *gin.Engine {
 		sql := `INSERT INTO block_info (block_name,  display_name, description) VALUES (`
 		sql = sql +`'`+ blockInfo.BlockName+ `', '` + blockInfo.DisplayName + `', '` + blockInfo.Descriptrion + `')`;
 		db.Exec(sql)
+		db.Close()
+	})
+
+	r.POST("/add_data",func(ctx *gin.Context) {
+		block := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect(block)
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			panic(err)
+		}
+		var info AddRow
+		err = json.Unmarshal(requestBody, &info)
+		if err != nil {
+			panic(err)
+		}
+		sql := `INSERT INTO ` + info.Name + " (id, "
+		for _,ele := range info.Col {
+			sql = sql + ele + ", "
+		}
+		sql = sql[:len(sql)-2]
+		sql = sql + ") VALUES ("
+		for _,ele1 := range info.Value{
+			var cond1 string
+			switch v := ele1.(type) {
+			case float64:
+				cond1 = strconv.FormatFloat(v, 'f', -1, 64)
+				sql = sql + cond1 + ", "
+			case int:
+				cond1 = strconv.Itoa(v)
+				sql = sql + cond1 + ", "
+			case string:
+				cond1 = v
+				sql = sql +`'` + cond1+`'` + ", "
+			default:
+				// Handle the case where the value is not a supported type
+			}
+		}
+		sql = sql[:len(sql)-2]
+		sql = sql + ")"
+		// fmt.Println(sql)
+		db.Exec(sql)
+		db.Close()
 	})
 
 	r.POST("/add_users", func(ctx *gin.Context){
-		name := "hcmut_meta"
+		name := "hcmut_metadata"
 		block := ctx.Request.URL.Query().Get("block")
 		db := OpenConnect(name)
 		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
@@ -269,13 +341,14 @@ func Handlers() *gin.Engine {
 			sql = sql +`'`+ ele + `', '` + block + `')`;
 			db.Exec(sql)
 		}
+		db.Close()
 	})
 
 	r.POST("/show_user",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("name")
 		name = name + "_user"
 		db := OpenConnect("keycloak")
-		sql := `SELECT username FROM user_entity as u, user_role_mapping as m WHERE u.id = m.user_id AND m.role_id='3cc1a1b7-83fc-468e-8ff1-36e5654b3f6f';`
+		sql := `SELECT username FROM user_entity as u, user_role_mapping as m WHERE u.id = m.user_id AND m.role_id='ced8dca4-72f0-4e77-ad98-1ae94b79e2c8';`
 		rows, err := db.Query(sql)
 		if err != nil {
 			panic(err)
@@ -297,6 +370,146 @@ func Handlers() *gin.Engine {
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": rowss,
 		})
+		db.Close()
+	})
+
+	r.GET("/show_criteria", func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect("hcmut_metadata")
+		sql := `SELECT description FROM block_info WHERE block_name ='` + name + `'`
+		rs, err := db.Query(sql)
+		if err != nil {
+			panic(err)
+		}
+		var response string
+		for rs.Next() {
+		err = rs.Scan(&response)
+		if err != nil {
+			panic(err)
+		}
+		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"body": response,
+		})
+		db.Close()
+	})
+
+	r.DELETE("/delete", func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect("postgres")
+		sql := "DROP DATABASE " + name
+		_, err := db.Exec(sql)
+		if err != nil {
+			log.Fatal(err)
+		}
+		db.Close()
+	})
+
+	r.POST("/edit_colname",func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect(name)
+		table := ctx.Request.URL.Query().Get("table")
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			panic(err)
+		}
+		var update Update
+		err = json.Unmarshal(requestBody, &update)
+		if err != nil {
+			panic(err)
+		}
+		sql := "ALTER TABLE " + table + " RENAME COLUMN "+ update.Old +" to "+ update.New
+		_, err = db.Exec(sql)
+		if err != nil {
+			log.Fatal(err)
+		}
+		db.Close()
+	})
+
+	
+
+	r.POST("/edit_criteria",func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		newDes := ctx.Request.URL.Query().Get("new")
+		db := OpenConnect("hcmut_metadata")
+		sql := `UPDATE block_info SET description = '`+ newDes+`' WHERE block_name = '` + name +`'`
+		fmt.Println(sql)
+		_, err := db.Exec(sql)
+		if err != nil {
+			log.Fatal(err)
+		}
+		db.Close()
+	})
+
+	// r.POST("/add_col",func(ctx *gin.Context) {
+	// 	name := ctx.Request.URL.Query().Get("block")
+	// 	table := ctx.Request.URL.Query().Get("table")
+	// 	db := OpenConnect(name)
+	// 	sql := "ALTER TABLE table1 RENAME COLUMN col1 to newcol;"
+	// })
+	
+	r.DELETE("/delete_row",func(ctx *gin.Context) {
+		block := ctx.Request.URL.Query().Get("block")
+		table := ctx.Request.URL.Query().Get("table")
+		id := ctx.Request.URL.Query().Get("id")
+		db := OpenConnect(block)
+		sql := `DELETE FROM ` + table + ` WHERE id = ` + id + ``
+		fmt.Println(sql)
+		db.Exec(sql)
+		db.Close()
+	})
+
+	r.DELETE("/delete_table",func(ctx *gin.Context) {
+		block := ctx.Request.URL.Query().Get("block")
+		table := ctx.Request.URL.Query().Get("table")
+		db := OpenConnect(block)
+		sql := `DROP TABLE `+ table
+		db.Exec(sql)
+		db.Close()
+	})
+
+	r.POST("/edit_row",func(ctx *gin.Context) {
+		name := ctx.Request.URL.Query().Get("block")
+		db := OpenConnect(name)
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+		var info RowChange
+		err = json.Unmarshal(requestBody, &info)
+		if err != nil {
+			panic(err)
+		}
+		var extractedData map[string]interface{}
+		if err := json.Unmarshal(info.Change, &extractedData); err != nil {
+			log.Fatal(err)
+		}
+		keys := make([]string, 0, len(extractedData))
+			for key := range extractedData {
+				keys = append(keys, key)
+			}
+		sql := `UPDATE `+ info.Name + ` SET `
+		for _,key := range keys {
+			value := extractedData[key]
+			add := value.(string)
+			sql = sql + key + ` = ` + `'`  + add + `' ` +`, `
+		}
+		sql = sql[:len(sql)-2]
+		cond := info.Cond
+		var cond1 string
+		switch v := cond.(type) {
+		case float64:
+			cond1 = strconv.FormatFloat(v, 'f', -1, 64)
+		case int:
+			cond1 = strconv.Itoa(v)
+		case string:
+			cond1 = v
+		default:
+			// Handle the case where the value is not a supported type
+		}
+		sql = sql + "WHERE id = " + cond1
+		db.Exec(sql)
+		db.Close()
 	})
 
 	r.GET("/show_folders",func(ctx *gin.Context) {
@@ -313,14 +526,77 @@ func Handlers() *gin.Engine {
 			if err != nil {
 				panic(err)
 			}
-			if strings.Contains(datname,"hcmut_") && datname != "hcmut_user" {
+			if strings.Contains(datname,"hcmut_") && datname != "hcmut_user" && datname != "hcmut_metadata" {
 				dblist = append(dblist,datname)
 			}
 		}
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": dblist,
 		})
+		db.Close()
 	})
+
+	r.GET("/show_folders_normal",func(ctx *gin.Context) {
+		user := ctx.Request.URL.Query().Get("user")
+		sql := `SELECT blocks FROM user_permission WHERE username = '` + user +`'`
+		db := OpenConnect("hcmut_metadata")
+		dbs, err := db.Query(sql)
+		var dblist []string;
+		if err != nil {
+			panic(err)
+		}
+		for dbs.Next() {
+			var datname string; 
+			err = dbs.Scan(&datname)
+			if err != nil {
+				panic(err)
+			}
+			if strings.Contains(datname,"hcmut_") && datname != "hcmut_user" && datname != "hcmut_metadata" {
+				dblist = append(dblist,datname)
+			}
+		}
+		ctx.JSON(http.StatusOK, gin.H{
+			"body": dblist,
+		})
+		db.Close()
+	})
+
+// 	r.OPTIONS("/upload_files", func(c *gin.Context) {
+//     c.Header("Access-Control-Allow-Origin", "*")
+//     c.Header("Access-Control-Allow-Methods", "POST")
+//     c.Header("Access-Control-Allow-Headers", "Content-Type")
+//     c.Header("Access-Control-Max-Age", "86400") // Optional, max age for preflight response (in seconds)
+//     c.Status(http.StatusOK)
+//   })
+
+	r.POST("/upload_files",func(ctx *gin.Context) {
+		file, err:= ctx.FormFile("upload")
+		if err != nil {
+			panic(err)
+		}
+		cfg, err := config.LoadDefaultConfig(context.TODO(), 
+	config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACESS_KEY"),"")),
+	)
+		if err != nil {
+			log.Printf("error: %v", err)
+			return
+		}
+		f, err := file.Open()
+		if err != nil {
+			log.Printf("error: %v", err)
+			return
+		}
+		client := s3.NewFromConfig(cfg)
+		uploader := manager.NewUploader(client)
+		folder := "hcmut"
+		objectKey := folder + "/" + file.Filename
+		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
+			Bucket: aws.String("lvtnstorage"),
+			Key:    aws.String(objectKey),
+			Body:   f,
+		})
+		fmt.Println(result)
+		})
 
 	return r
 }
