@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"fmt"
 	"os"
 	"strings"
 )
@@ -8,7 +9,8 @@ import (
 func GetUnit(host string) string {
 	res := strings.Split(host, ".")
 
-	if os.Getenv("GO_ENV") == "development" {
+	fmt.Println("IN HERE GET_UNITS: ", os.Getenv("ENVIROMENT"))
+	if os.Getenv("ENVIROMENT") == "development" {
 		return "master"
 	}
 

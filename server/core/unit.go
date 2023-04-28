@@ -1,6 +1,8 @@
 package core
 
-import "context"
+import (
+	"context"
+)
 
 type Unit struct {
 	RealmID     string  `json:"realm_id"`

@@ -12,7 +12,6 @@ services:
       - KEYCLOAK_DATABASE_PASSWORD=Wjd4nw37wJu9bAsvBv3Mn8byew7URykL
     depends_on:
       - postgresql
-      - nginx
 
   nginx:
     image: nginx:mainline-alpine-slim
@@ -48,5 +47,9 @@ services:
 
     volumes:
       - ${PWD}/postgres_init.sql:/docker-entrypoint-initdb.d/postgres_init.sql
+      - db-data:/var/lib/postgresql/data
     ports:
       - 5432:5432
+
+volumes:
+  db-data:
