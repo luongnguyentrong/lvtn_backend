@@ -405,6 +405,23 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
+	r.POST("/edit_blockname",func(ctx *gin.Context) {
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			panic(err)
+		}
+		var update Update
+		err = json.Unmarshal(requestBody, &update)
+		if err != nil {
+			panic(err)
+		}
+		db := OpenConnect("postgres")
+		sql := `ALTER DATABASE "`+ update.Old+ `" RENAME TO "` + update.New + `"`
+		fmt.Println(sql)
+		db.Exec(sql)
+		db.Close()
+	})	
+
 	r.POST("/edit_colname",func(ctx *gin.Context) {
 		name := ctx.Request.URL.Query().Get("block")
 		db := OpenConnect(name)
@@ -597,6 +614,46 @@ func Handlers() *gin.Engine {
 		})
 		fmt.Println(result)
 		})
+
+	r.GET("/list-items", func(c *gin.Context) {
+		bucketName := "lvtnstorage"
+		folderPath := "hcmut/"
+
+		// Set the S3 parameters for listing objects
+		params := &s3.ListObjectsV2Input{
+			Bucket:    aws.String(bucketName),
+			Prefix:    aws.String(folderPath),
+			Delimiter: aws.String("/"), // Only list items directly inside the folder, excluding sub-folders
+		}
+
+		cfg, err := config.LoadDefaultConfig(context.TODO(), 
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACESS_KEY"),"")),
+		)
+		if err != nil {
+			log.Printf("error: %v", err)
+			return
+		}
+		client := s3.NewFromConfig(cfg)
+		// Call the ListObjectsV2 API
+		resp, err := client.ListObjectsV2(context.TODO(),params)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": err.Error(),
+			})
+			return
+		}
+
+		// Extract the item names from the response
+		var itemNames []string
+		for _, obj := range resp.Contents {
+			itemNames = append(itemNames, *obj.Key)
+		}
+
+		// Return the item names as the API response
+		c.JSON(http.StatusOK, gin.H{
+			"items": itemNames,
+		})
+	})
 
 	return r
 }
