@@ -3,16 +3,21 @@ package api
 import (
 	"context"
 	"database/sql"
+	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-
-	"os"
+	
+	// "time"
+	"github.com/360EntSecGroup-Skylar/excelize"
 	"api.ducluong.monster/api/units"
 	"api.ducluong.monster/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -22,6 +27,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/postgres"
 	_ "github.com/lib/pq"
 )
 
@@ -29,6 +36,11 @@ type Table struct{
 	Name string 	`json:"name"`
 	Cols []string	`json:"cols"`
 	Descriptrion []string `json:"des"`
+}
+
+type DynamicModel struct {
+	gorm.Model
+	Columns map[string]interface{}
 }
 
 type Account struct{
@@ -121,7 +133,6 @@ func CreateTable(dbname string,name string, cols []string, des []string){
 		if err != nil {
 			log.Fatal(err)
 		}
-		fmt.Println(sql)
 	}
 	db.Close()
 }
@@ -568,9 +579,7 @@ func Handlers() *gin.Engine {
 			if err != nil {
 				panic(err)
 			}
-			if strings.Contains(datname,"hcmut_") && datname != "hcmut_user" && datname != "hcmut_metadata" {
-				dblist = append(dblist,datname)
-			}
+			dblist = append(dblist,datname)
 		}
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": dblist,
@@ -588,6 +597,7 @@ func Handlers() *gin.Engine {
 
 	r.POST("/upload_files",func(ctx *gin.Context) {
 		file, err:= ctx.FormFile("upload")
+		name := ctx.Request.URL.Query().Get("block")
 		if err != nil {
 			panic(err)
 		}
@@ -606,7 +616,7 @@ func Handlers() *gin.Engine {
 		client := s3.NewFromConfig(cfg)
 		uploader := manager.NewUploader(client)
 		folder := "hcmut"
-		objectKey := folder + "/" + file.Filename
+		objectKey := folder + "/"+name+"/"+file.Filename
 		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
 			Bucket: aws.String("lvtnstorage"),
 			Key:    aws.String(objectKey),
@@ -614,10 +624,82 @@ func Handlers() *gin.Engine {
 		})
 		fmt.Println(result)
 		})
+	r.POST("/import_with_excel", func(c *gin.Context) {
+		name := c.Request.URL.Query().Get("block")
+		table := c.Request.URL.Query().Get("table")
+		db, err := gorm.Open("postgres", "host=159.223.66.111 port=5432 user=khoa password=7jySGi9Yj6jX9A12lijb5wsPntUiPdU8 dbname=" +name+ " sslmode=disable")
+		if err != nil {
+		log.Fatal(err)
+		}
+		file, err := c.FormFile("file")
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		src, err := file.Open()
+		
+		f, err := excelize.OpenReader(src)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 
+		rows := f.GetRows(f.GetSheetName(1)) // Assuming the data is in the first sheet
+		
+		tx := db.Begin()
+		fields := make([]string, 0) // Store the field names dynamically
+		for i, row := range rows {
+			if i == 0 {
+				fields = row
+				continue
+			}
+
+			var values []interface{}
+			for j, field := range fields {
+            // Convert the value to the expected data type based on the PostgreSQL table column
+            colValue := row[j]
+            if colValue != "" {
+                if isIntColumn(field) {
+                    intValue, err := strconv.Atoi(colValue)
+                    if err != nil {
+                        c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert value to integer"})
+                        return
+                    }
+                    values = append(values, intValue)
+                } else {
+                    values = append(values, colValue)
+                }
+            } else {
+                values = append(values, nil) // Handle empty values as NULL
+            }
+        	}
+
+			insertQuery := fmt.Sprintf("INSERT INTO %s (%s) VALUES ", table, strings.Join(fields, ", "))
+			placeholders := make([]string, len(fields))
+			for j := range fields {
+				placeholders[j] = fmt.Sprintf("$%d", j+1)
+			}
+			insertQuery += fmt.Sprintf("(%s)", strings.Join(placeholders, ", "))
+
+			tx.Exec(insertQuery, values...)
+			// if err := tx.Exec(insertQuery, values...); err != nil {
+			// 	tx.Rollback()
+			// 	print(err)
+			// 	return
+			// }
+		}
+		if err := tx.Commit().Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "File uploaded and data imported successfully"})
+	})
 	r.GET("/list-items", func(c *gin.Context) {
 		bucketName := "lvtnstorage"
+		name := c.Request.URL.Query().Get("block")
 		folderPath := "hcmut/"
+		folderPath += name + "/"
 
 		// Set the S3 parameters for listing objects
 		params := &s3.ListObjectsV2Input{
@@ -650,10 +732,117 @@ func Handlers() *gin.Engine {
 		}
 
 		// Return the item names as the API response
+		fileNames := make([]string, len(itemNames))
+		for i, path := range itemNames {
+			fileNames[i] = filepath.Base(path)
+		}
 		c.JSON(http.StatusOK, gin.H{
-			"items": itemNames,
+			"items": fileNames,
 		})
+	})
+	r.POST("/import", func(c *gin.Context) {
+		name := c.Request.URL.Query().Get("block")
+		table := c.Request.URL.Query().Get("table")
+		db, err := gorm.Open("postgres", "host=159.223.66.111 port=5432 user=khoa password=7jySGi9Yj6jX9A12lijb5wsPntUiPdU8 dbname=" +name+ " sslmode=disable")
+		if err != nil {
+		log.Fatal(err)
+		}
+		file, err := c.FormFile("file")
+		if err != nil {
+			
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		src, err := file.Open()
+		if err != nil {
+			
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		defer src.Close()
+
+		reader := csv.NewReader(src)
+		reader.Comma = ',' // Modify this if your CSV file has a different delimiter
+
+		header, err := reader.Read()
+		// fmt.Println(reader)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		tx := db.Begin()
+		for {
+			record, err := reader.Read()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+
+			// Skip the header row
+			if strings.HasPrefix(record[0], "column1") {
+				continue
+			}
+
+			values := make([]interface{}, len(record))
+			for i, col := range record {
+				values[i] = col
+			}
+
+			insertQuery := fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", table, strings.Join(header, ","), strings.Join(strings.Split(strings.Repeat("?", len(record)), ""), ","))
+			if err := tx.Exec(insertQuery, values...).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+
+		if err := tx.Commit().Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "File uploaded and data imported successfully"})
+	})
+	r.GET("/download", func(c *gin.Context) {
+		// Get the object key from the query parameter
+		fileName := c.Request.URL.Query().Get("name")
+		//name := c.Request.URL.Query().Get("block")
+
+		cfg, err := config.LoadDefaultConfig(context.TODO(), 
+			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACESS_KEY"),"")),
+		)		
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+		client := s3.NewFromConfig(cfg)
+		presign := s3.NewPresignClient(client)
+		presignedURL, err := createPresignedURL(presign, "lvtnstorage", fileName)
+		c.JSON(http.StatusOK, gin.H{"url": presignedURL})
 	})
 
 	return r
+}
+
+func createPresignedURL(client *s3.PresignClient, bucketName, objectKey string) (string, error) {
+	req := &s3.GetObjectInput{
+		Bucket: aws.String("lvtnstorage"),
+		Key:    aws.String(objectKey),
+	}
+	presignedURL, err := client.PresignGetObject(context.TODO(), req)
+	if err != nil {
+		return "", err
+	}
+
+	return presignedURL.URL, nil
+}
+func isIntColumn(columnName string) bool {
+	_, err := strconv.Atoi(columnName)
+	return err == nil
 }
