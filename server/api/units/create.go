@@ -22,33 +22,6 @@ type createUnitInp struct {
 	AdminPassword string `json:"admin_password"`
 }
 
-// func makePutRequest(realm string, clientScopeID string, mapperID string) (int, error) {
-// 	// Set the URL and request body
-	
-// 	url := fmt.Sprintf("https://sso.ducluong.monster/admin/realms/%s/client-scopes/%s/protocol-mappers/models/%s", realm, clientScopeID, mapperID)
-// 	body := []byte(`{"name": "John", "age": 30}`)
-
-// 	// Create a new HTTP client and request
-// 	client := &http.Client{}
-// 	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(body))
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-
-// 	// Set the request headers
-// 	req.Header.Set("Content-Type", "application/json")
-
-// 	// Send the request and get the response
-// 	resp, err := client.Do(req)
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return
-// 	}
-
-// 	defer resp.Body.Close()
-// }
-
 func HandleCreate() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var inp createUnitInp
@@ -168,14 +141,8 @@ func HandleCreate() gin.HandlerFunc {
 			}
 		}
 
-		// Save unit org structure
+		// Init database instance
 		db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/metadata"))
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
-		}
-
-		err = db.AutoMigrate(&core.Unit{})
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return

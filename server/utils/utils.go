@@ -9,7 +9,6 @@ import (
 func GetUnit(host string) string {
 	res := strings.Split(host, ".")
 
-	fmt.Println("IN HERE GET_UNITS: ", os.Getenv("ENVIROMENT"))
 	if os.Getenv("ENVIROMENT") == "development" {
 		return "master"
 	}

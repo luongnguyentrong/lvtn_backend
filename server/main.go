@@ -23,6 +23,7 @@ func init() {
 	}
 
 	db.AutoMigrate(&core.Unit{})
+	db.AutoMigrate(&core.Block{})
 }
 
 // func createMasterUnit() {
@@ -57,11 +58,6 @@ func init() {
 // }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println(err)
-	}
-
 	// createMasterUnit()
 
 	api.Handlers().Run()

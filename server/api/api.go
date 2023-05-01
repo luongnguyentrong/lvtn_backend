@@ -13,6 +13,8 @@ import (
 	"strings"
 
 	"os"
+
+	"api.ducluong.monster/api/blocks"
 	"api.ducluong.monster/api/units"
 	"api.ducluong.monster/middleware"
 	"github.com/aws/aws-sdk-go-v2/aws"
@@ -139,6 +141,9 @@ func Handlers() *gin.Engine {
 	config1.AllowAllOrigins = true
 	config1.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
 	r.Use(cors.New(config1))
+
+	// Create new block
+	r.POST("/blocks", middleware.Protected(), middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate())
 
 	// List all realms 
 	r.GET("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleList())
