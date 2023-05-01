@@ -6,6 +6,7 @@ import (
 
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/utils"
+	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -20,7 +21,7 @@ func HandleListOrg() gin.HandlerFunc {
 		}
 
 		resultUnit := core.Unit{}
-		resultUnit.Name = utils.GetUnit(ctx.Request.Host)
+		resultUnit.Name = gocloak.StringP(utils.GetUnit(ctx.Request.Host)) 
 
 		result := db.Preload("Children").Find(&resultUnit)
 		if result.Error != nil {

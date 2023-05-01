@@ -159,6 +159,9 @@ func Handlers() *gin.Engine {
 	// List all realms 
 	r.GET("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleList())
 
+	// Get unit by name
+	r.GET("/units/:name", units.HandleGet())
+
 	// Create a realm, an admin user and init necessery clients
 	r.POST("/units", middleware.Protected(), middleware.AllowedRoles("admin"), units.HandleCreate())
 
