@@ -17,9 +17,7 @@ type createUnitInp struct {
 	UnitName      *string `json:"unit_name" binding:"required"`
 	DisplayName   *string `json:"display_name" binding:"required"`
 	Description   *string `json:"description"`
-	ParentUnit    *string `json:"parent_unit"`
-	AdminUsername *string `json:"manager_username" binding:"required"`
-	AdminPassword *string `json:"manager_password" binding:"required"`
+	ParentUnit    *string `json:"parent_unit" binding:"required"`
 }
 
 func HandleCreate() gin.HandlerFunc {
@@ -32,6 +30,7 @@ func HandleCreate() gin.HandlerFunc {
 			return
 		}
 
+		// Init keycloak client
 		client := gocloak.NewClient(os.Getenv("KEYCLOAK_HOST"))
 		token, err := client.LoginAdmin(ctx, os.Getenv("KEYCLOAK_USERNAME"), os.Getenv("KEYCLOAK_PASSWORD"), "master")
 		if err != nil {
@@ -50,24 +49,6 @@ func HandleCreate() gin.HandlerFunc {
 			return
 		}
 
-		// Create a new user
-		userID, err := client.CreateUser(ctx, token.AccessToken, *inp.UnitName, gocloak.User{
-			Username: inp.AdminUsername,
-			Enabled:  gocloak.BoolP(true),
-		})
-
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
-		}
-
-		// Set user password
-		err = client.SetPassword(ctx, token.AccessToken, userID, *inp.UnitName, *inp.AdminPassword, false)
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
-		}
-
 		// Create realm roles for this new realm (unit_manager, unit_user)
 		REALM_ROLES := []string{"unit_manager", "unit_normal"}
 
@@ -81,21 +62,6 @@ func HandleCreate() gin.HandlerFunc {
 				return
 			}
 
-		}
-
-		// Attach role unit_manager to this user
-		roles, err := client.GetRealmRoles(ctx, token.AccessToken, *inp.UnitName, gocloak.GetRoleParams{})
-
-		for _, role := range roles {
-			if *role.Name == "unit_admin" {
-				err = client.AddRealmRoleToUser(ctx, token.AccessToken, *inp.UnitName, userID, []gocloak.Role{*role})
-				break
-			}
-		}
-
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
 		}
 
 		// Create console client to perform sso on this unit
@@ -158,7 +124,7 @@ func HandleCreate() gin.HandlerFunc {
 
 		requesting_user_id := user.(core.User).ID
 
-		unit_url := fmt.Sprintf("%s.ducluong.monster", inp.UnitName)
+		unit_url := fmt.Sprintf("%s.ducluong.monster", *inp.UnitName)
 
 		result := db.Create(core.Unit{
 			RealmID:     &realmID,
