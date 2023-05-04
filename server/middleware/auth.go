@@ -11,29 +11,14 @@ import (
 	"strings"
 
 	"api.ducluong.monster/core"
+	"api.ducluong.monster/utils"
 	"github.com/gin-gonic/gin"
 )
 
 var errorUserNotFound = errors.New("user not found")
 
-func getUnit(host string) string {
-	res := strings.Split(host, ".")
-
-	if os.Getenv("GO_ENV") == "development" {
-		return "master"
-	}
-
-	if len(res) == 3 {
-		return res[0]
-	} else if len(res) == 2 {
-		return "master"
-	}
-
-	return ""
-}
-
 func verifyToken(token string, ctx *gin.Context) (bool, error) {
-	unit_name := getUnit(ctx.Request.Host)
+	unit_name := utils.GetUnit(ctx.Request.Host)
 
 	INTROSPECT_ENDPOINT := fmt.Sprintf("https://sso.ducluong.monster/realms/%s/protocol/openid-connect/token/introspect", unit_name)
 
@@ -41,6 +26,8 @@ func verifyToken(token string, ctx *gin.Context) (bool, error) {
 	data.Set("client_id", os.Getenv("CLIENT_ID"))
 	data.Set("client_secret", os.Getenv("CLIENT_SECRET"))
 	data.Set("token", token)
+
+	fmt.Println(os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET"), INTROSPECT_ENDPOINT)
 
 	resp, err := http.Post(INTROSPECT_ENDPOINT, "application/x-www-form-urlencoded", bytes.NewBufferString(data.Encode()))
 	if err != nil {
@@ -53,11 +40,13 @@ func verifyToken(token string, ctx *gin.Context) (bool, error) {
 
 	err = json.NewDecoder(resp.Body).Decode(&introspectionResp)
 	if err != nil {
+		fmt.Println("IN HERE HERE")
 		return false, err
 	}
 
 	ctx.Set("user", introspectionResp)
 
+	fmt.Println("OR IN HERE", introspectionResp)
 	return introspectionResp.Active, nil
 }
 
@@ -81,6 +70,7 @@ func Protected() gin.HandlerFunc {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		isActive, err := verifyToken(token, ctx)
+		fmt.Println("IN HERE: ", isActive)
 		if !isActive {
 			if err != nil {
 				ctx.AbortWithError(http.StatusUnauthorized, err)
