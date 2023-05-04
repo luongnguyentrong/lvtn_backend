@@ -3,6 +3,7 @@ module api.ducluong.monster
 go 1.20
 
 require (
+	github.com/360EntSecGroup-Skylar/excelize v1.4.1
 	github.com/Nerzal/gocloak/v13 v13.1.0
 	github.com/aws/aws-sdk-go-v2 v1.18.0
 	github.com/aws/aws-sdk-go-v2/config v1.18.22
@@ -10,6 +11,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/feature/s3/manager v1.11.64
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.33.0
 	github.com/gin-gonic/gin v1.9.0
+	github.com/jinzhu/gorm v1.9.16
 	github.com/joho/godotenv v1.5.1
 )
 
@@ -33,7 +35,6 @@ require (
 )
 
 require (
-	github.com/360EntSecGroup-Skylar/excelize v1.4.1
 	github.com/bytedance/sonic v1.8.5 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/gin-contrib/cors v1.4.0
