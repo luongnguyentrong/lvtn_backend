@@ -13,7 +13,7 @@ import (
 func HandleListOrg(metadataDB *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		resultUnit := core.Unit{}
-		resultUnit.Name = gocloak.StringP(utils.GetUnit(ctx.Request.Host)) 
+		resultUnit.Name = gocloak.StringP(ctx.Request.Header.Get("Origin")) 
 
 		result := metadataDB.Preload("Children").Find(&resultUnit)
 		if result.Error != nil {

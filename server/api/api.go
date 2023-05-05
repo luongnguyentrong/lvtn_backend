@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"api.ducluong.monster/api/blocks"
+	"api.ducluong.monster/api/users"
 	"api.ducluong.monster/shared/db"
 
 	// "time"
@@ -178,10 +179,20 @@ func Handlers() *gin.Engine {
 		unitsRoute.POST("/", middleware.AllowedRoles("admin"), units.HandleCreate())
 	}
 
+	// users rest apis
+	usersRoute := r.Group("/users")
+	usersRoute.Use(middleware.Protected())
+	usersRoute.Use(middleware.AllowedRoles("admin", "unit_admin"))
+	{
+		usersRoute.POST("/", users.HandleCreate())
+	}
+
 	// ping api
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "pong",
+			"host":  c.Request.Host,
+			"origin": c.Request.Header.Get("Origin"),	
 		})
 	})
 
