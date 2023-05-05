@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"api.ducluong.monster/core"
-	"api.ducluong.monster/utils"
 	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
