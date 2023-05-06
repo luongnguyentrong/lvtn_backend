@@ -190,7 +190,7 @@ func Handlers() *gin.Engine {
 	// ping api
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
+			"message": "dmm",
 			"host":  c.Request.Host,
 			"origin": c.Request.Header.Get("Origin"),	
 		})
