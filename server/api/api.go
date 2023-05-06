@@ -285,7 +285,6 @@ func Handlers() *gin.Engine {
 	r.POST("/create_block", func(ctx *gin.Context) {
 		encodedName := ctx.Request.URL.Query().Get("name")
 		name, _ := url.QueryUnescape(encodedName)
-		fmt.Println("Name=", name)
 		CreateDb(name)
 	})
 
