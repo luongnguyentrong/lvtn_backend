@@ -558,7 +558,7 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
-	r.GET("/show_folders", func(ctx *gin.Context) {
+	r.GET("/show_folders",middleware.Protected(), func(ctx *gin.Context) {
 		sql := "SELECT datname FROM pg_database"
 		db := OpenConnect("postgres")
 		dbs, err := db.Query(sql)
@@ -844,6 +844,10 @@ func Handlers() *gin.Engine {
 		presignedURL, err := createPresignedURL(presign, "lvtnstorage", fileName)
 		c.JSON(http.StatusOK, gin.H{"url": presignedURL})
 	})
+	// r.POST("/add_relationship", func(ctx *gin.Context) {
+	// 	fileName := c.Request.URL.Query().Get("name")
+
+	// })
 
 	return r
 }
