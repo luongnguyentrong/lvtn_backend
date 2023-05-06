@@ -30,7 +30,7 @@ services:
       - postgresql
 
   api:
-    image: ducluongvn/api
+    image: ghcr.io/luongnguyentrong/lvtn_backend:master
     depends_on:
       - postgresql
     restart: on-failure
