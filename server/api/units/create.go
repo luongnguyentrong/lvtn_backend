@@ -14,10 +14,10 @@ import (
 )
 
 type createUnitInp struct {
-	UnitName      *string `json:"unit_name" binding:"required"`
-	DisplayName   *string `json:"display_name" binding:"required"`
-	Description   *string `json:"description"`
-	ParentUnit    *string `json:"parent_unit" binding:"required"`
+	UnitName    *string `json:"unit_name" binding:"required"`
+	DisplayName *string `json:"display_name" binding:"required"`
+	Description *string `json:"description"`
+	ParentUnit  *string `json:"parent_unit" binding:"required"`
 }
 
 func HandleCreate() gin.HandlerFunc {
@@ -70,11 +70,12 @@ func HandleCreate() gin.HandlerFunc {
 			PublicClient: gocloak.BoolP(true),
 			RedirectURIs: &[]string{
 				"http://localhost:3000/*",
+				fmt.Sprintf("https://%s.ducluong.monster/*", *inp.UnitName),
 			},
 			WebOrigins: &[]string{
 				"http://localhost:3000",
-			},
-		})
+				fmt.Sprintf("https://%s.ducluong.monster", *inp.UnitName),
+			}, })
 
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})

@@ -1,6 +1,7 @@
 package units
 
 import (
+	"fmt"
 	"net/http"
 
 	"api.ducluong.monster/core"
@@ -12,7 +13,9 @@ import (
 func HandleListOrg(metadataDB *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		resultUnit := core.Unit{}
-		resultUnit.Name = gocloak.StringP(ctx.Request.Header.Get("Origin")) 
+		resultUnit.URL = gocloak.StringP(ctx.Request.Header.Get("Origin")) 
+
+		fmt.Println("IN HERE HERE ", *resultUnit.URL)
 
 		result := metadataDB.Preload("Children").Find(&resultUnit)
 		if result.Error != nil {
