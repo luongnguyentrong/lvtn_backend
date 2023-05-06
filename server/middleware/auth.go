@@ -18,7 +18,7 @@ import (
 var errorUserNotFound = errors.New("user not found")
 
 func verifyToken(token string, ctx *gin.Context) (bool, error) {
-	unit_name := utils.GetUnit(ctx.Request.Host)
+	unit_name := utils.GetUnit(ctx.Request.Header.Get("Origin"))
 
 	INTROSPECT_ENDPOINT := fmt.Sprintf("https://sso.ducluong.monster/realms/%s/protocol/openid-connect/token/introspect", unit_name)
 

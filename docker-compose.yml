@@ -1,9 +1,0 @@
-version: '2'
-services:
-  superset:
-    image: ducluongvn/superset_local
-    volumes:
-      - ./config/superset:/app/pythonpath 
-    
-    ports:
-      - 8080:8088
