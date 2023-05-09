@@ -66,14 +66,13 @@ func Protected() gin.HandlerFunc {
 		token := strings.TrimPrefix(authHeader, "Bearer ")
 
 		isActive, err := verifyToken(token, ctx)
-		fmt.Println("IN HERE: ", isActive)
 		if !isActive {
 			if err != nil {
 				ctx.AbortWithError(http.StatusUnauthorized, err)
 				return
 			}
 
-			ctx.AbortWithError(http.StatusUnauthorized, errors.New("Token is expired"))
+			ctx.AbortWithError(http.StatusUnauthorized, errors.New("token is expired"))
 			return
 		}
 

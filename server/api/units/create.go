@@ -123,7 +123,7 @@ func HandleCreate() gin.HandlerFunc {
 			return
 		}
 
-		requesting_user_id := user.(core.User).ID
+		requesting_user_id := *user.(core.User).ID
 
 		unit_url := fmt.Sprintf("%s.ducluong.monster", *inp.UnitName)
 

@@ -1,11 +1,11 @@
 from flask_appbuilder.security.manager import AUTH_OID
-from flask import redirect, request
 from superset.security import SupersetSecurityManager
 from flask_oidc import OpenIDConnect
 from flask_appbuilder.security.views import AuthOIDView
 from flask_login import login_user
 from urllib.parse import quote
 from flask_appbuilder.views import ModelView, SimpleFormView, expose
+from flask import redirect, request
 import logging
 
 class OIDCSecurityManager(SupersetSecurityManager):
@@ -27,12 +27,9 @@ class AuthOIDCView(AuthOIDView):
         def handle_login():
             user = sm.auth_user_oid(oidc.user_getfield('email'))
 
-            if user is None:
-                info = oidc.user_getinfo(['preferred_username', 'given_name', 'family_name', 'email'])
-                user = sm.add_user(info.get('preferred_username'), info.get('given_name'), info.get('family_name'),
-                                   info.get('email'), sm.find_role('Admin'))
+            if user:
+                login_user(user, remember=False, force=True)
 
-            # login_user(user, remember=False)
             return redirect(self.appbuilder.get_url_for_index)
 
         return handle_login()

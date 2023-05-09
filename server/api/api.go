@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"api.ducluong.monster/api/blocks"
+	"api.ducluong.monster/api/superset"
 	"api.ducluong.monster/api/users"
 	"api.ducluong.monster/shared/db"
 
@@ -185,14 +186,23 @@ func Handlers() *gin.Engine {
 	usersRoute.Use(middleware.AllowedRoles("admin", "unit_admin"))
 	{
 		usersRoute.POST("/", users.HandleCreate())
+		usersRoute.GET("/", middleware.InjectKeycloak(), users.HandleList())
+	}
+
+	// superset routes
+	supersetRoute := r.Group("/superset")
+	supersetRoute.GET("/", middleware.InjectSupersetToken(), superset.HandleList())
+	supersetRoute.Use(middleware.Protected())
+	{
+		supersetRoute.POST("/", middleware.InjectSupersetToken(), superset.HandleCreate())
 	}
 
 	// ping api
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "dmm",
-			"host":  c.Request.Host,
-			"origin": c.Request.Header.Get("Origin"),	
+			"host":    c.Request.Host,
+			"origin":  c.Request.Header.Get("Origin"),
 		})
 	})
 
@@ -568,7 +578,7 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
-	r.GET("/show_folders",middleware.Protected(), func(ctx *gin.Context) {
+	r.GET("/show_folders", middleware.Protected(), func(ctx *gin.Context) {
 		sql := "SELECT datname FROM pg_database"
 		db := OpenConnect("postgres")
 		dbs, err := db.Query(sql)
