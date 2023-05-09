@@ -174,11 +174,11 @@ func Handlers() *gin.Engine {
 	}
 
 	// Create new block
-	r.POST("/blocks", middleware.Protected(), middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate())
+	r.POST("/blocks", middleware.Protected(keycloakDB), middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate())
 
 	// units rest apis
 	unitsRoute := r.Group("/units")
-	unitsRoute.Use(middleware.Protected())
+	unitsRoute.Use(middleware.Protected(keycloakDB))
 	{
 		unitsRoute.GET("/", middleware.AllowedRoles("admin"), units.HandleList(metadataDB, keycloakDB))
 		unitsRoute.GET("/org", units.HandleListOrg(metadataDB))
@@ -188,7 +188,7 @@ func Handlers() *gin.Engine {
 
 	// users rest apis
 	usersRoute := r.Group("/users")
-	usersRoute.Use(middleware.Protected())
+	usersRoute.Use(middleware.Protected(keycloakDB))
 	usersRoute.Use(middleware.AllowedRoles("admin", "unit_admin"))
 	{
 		usersRoute.POST("/", users.HandleCreate())
@@ -198,7 +198,7 @@ func Handlers() *gin.Engine {
 	// superset routes
 	supersetRoute := r.Group("/superset")
 	supersetRoute.GET("/", middleware.InjectSupersetToken(), superset.HandleList())
-	supersetRoute.Use(middleware.Protected())
+	supersetRoute.Use(middleware.Protected(keycloakDB))
 	{
 		supersetRoute.POST("/", middleware.InjectSupersetToken(), superset.HandleCreate())
 	}
@@ -597,7 +597,7 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
-	r.GET("/show_folders", middleware.Protected(), func(ctx *gin.Context) {
+	r.GET("/show_folders", middleware.Protected(keycloakDB), func(ctx *gin.Context) {
 		sql := "SELECT datname FROM pg_database"
 		db := OpenConnect("postgres")
 		dbs, err := db.Query(sql)
