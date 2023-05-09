@@ -6,15 +6,16 @@ import (
 )
 
 func GetUnit(host string) string {
-	res := strings.Split(host, ".")
-
 	if os.Getenv("ENVIROMENT") == "development" {
 		return "master"
 	}
 
+	unitName := strings.TrimPrefix(host, "https://")
+
+	res := strings.Split(unitName, ".")
 	if len(res) == 3 {
 		return res[0]
-	} else if len(res) == 2 {
+	} else if len(res) <= 2 {
 		return "master"
 	}
 

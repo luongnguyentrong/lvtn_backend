@@ -28,9 +28,10 @@ services:
       - client
       - api
       - postgresql
+      - superset
 
   api:
-    image: ducluongvn/api
+    image: ghcr.io/luongnguyentrong/lvtn_backend:master
     depends_on:
       - postgresql
     restart: on-failure
@@ -53,6 +54,9 @@ services:
       - db-data:/var/lib/postgresql/data
     ports:
       - 5432:5432
+
+  superset:
+    image: ducluongvn/superset_local
 
 volumes:
   db-data:

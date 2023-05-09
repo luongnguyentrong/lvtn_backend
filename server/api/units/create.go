@@ -50,7 +50,7 @@ func HandleCreate() gin.HandlerFunc {
 		}
 
 		// Create realm roles for this new realm (unit_manager, unit_user)
-		REALM_ROLES := []string{"unit_manager", "unit_normal"}
+		REALM_ROLES := []string{"unit_admin", "unit_normal"}
 
 		for _, role := range REALM_ROLES {
 			_, err = client.CreateRealmRole(ctx, token.AccessToken, *inp.UnitName, gocloak.Role{
@@ -75,7 +75,7 @@ func HandleCreate() gin.HandlerFunc {
 			WebOrigins: &[]string{
 				"http://localhost:3000",
 				fmt.Sprintf("https://%s.ducluong.monster", *inp.UnitName),
-			}, })
+			}})
 
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})

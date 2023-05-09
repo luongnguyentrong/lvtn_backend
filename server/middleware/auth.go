@@ -27,8 +27,6 @@ func verifyToken(token string, ctx *gin.Context) (bool, error) {
 	data.Set("client_secret", os.Getenv("CLIENT_SECRET"))
 	data.Set("token", token)
 
-	fmt.Println(os.Getenv("CLIENT_ID"), os.Getenv("CLIENT_SECRET"), INTROSPECT_ENDPOINT)
-
 	resp, err := http.Post(INTROSPECT_ENDPOINT, "application/x-www-form-urlencoded", bytes.NewBufferString(data.Encode()))
 	if err != nil {
 		return false, err
@@ -40,13 +38,11 @@ func verifyToken(token string, ctx *gin.Context) (bool, error) {
 
 	err = json.NewDecoder(resp.Body).Decode(&introspectionResp)
 	if err != nil {
-		fmt.Println("IN HERE HERE")
 		return false, err
 	}
 
 	ctx.Set("user", introspectionResp)
 
-	fmt.Println("OR IN HERE", introspectionResp)
 	return introspectionResp.Active, nil
 }
 
