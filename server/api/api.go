@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
+	//"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -78,12 +78,18 @@ type RowChange struct {
 type Update struct {
 	Old string `json:"old"`
 	New string `json:"new"`
+	NewDis string `json:"new_dis"`
 }
 
 type BlockInfo struct {
 	BlockName    string `json:"name"`
 	DisplayName  string `json:"display"`
 	Descriptrion string `json:"descript"`
+}
+
+type CreateBlock struct {
+	DisplayName string `json:"disname"`
+	NorName		string	`json:"norname"`
 }
 
 const (
@@ -283,10 +289,17 @@ func Handlers() *gin.Engine {
 	})
 
 	r.POST("/create_block", func(ctx *gin.Context) {
-		encodedName := ctx.Request.URL.Query().Get("name")
-		name, _ := url.QueryUnescape(encodedName)
-		fmt.Println("Name=", name)
-		CreateDb(name)
+		requestBody, err := ioutil.ReadAll(ctx.Request.Body)
+		if err != nil {
+			panic(err)
+		}
+		var blocks CreateBlock
+		err = json.Unmarshal(requestBody, &blocks)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println(blocks)
+		CreateDb(blocks.NorName)
 	})
 
 	r.POST("/create_tables", func(ctx *gin.Context) {
@@ -457,10 +470,15 @@ func Handlers() *gin.Engine {
 		if err != nil {
 			panic(err)
 		}
-		db := OpenConnect("postgres")
+		db := OpenConnect("hcmut_metadata")
 		sql := `ALTER DATABASE "` + update.Old + `" RENAME TO "` + update.New + `"`
-		fmt.Println(sql)
+		sql2 := `UPDATE block_info SET block_name = '` + update.New + `', display_name ='` + update.NewDis + `' WHERE block_name='` + update.Old+ `'`
+		sql3 := `UPDATE user_permission SET blocks = '` + update.New + `' WHERE blocks='` + update.Old+ `'`
+		fmt.Println(sql2)
+		fmt.Println(sql3)
 		db.Exec(sql)
+		db.Exec(sql2)
+		db.Exec(sql3)
 		db.Close()
 	})
 
@@ -595,7 +613,7 @@ func Handlers() *gin.Engine {
 
 	r.GET("/show_folders_normal", func(ctx *gin.Context) {
 		user := ctx.Request.URL.Query().Get("user")
-		sql := `SELECT blocks FROM user_permission WHERE username = '` + user + `'`
+		sql := `SELECT display_name FROM user_permission as u JOIN block_info as b ON u.blocks = b.block_name  WHERE username = '` + user + `'`
 		db := OpenConnect("hcmut_metadata")
 		dbs, err := db.Query(sql)
 		var dblist []string
@@ -769,6 +787,14 @@ func Handlers() *gin.Engine {
 			"items": fileNames,
 		})
 	})
+	// r.GET("/get_column", func(ctx *gin.Context) {
+	// 	name := ctx.Request.URL.Query().Get("block")
+	// 	table := ctx.Request.URL.Query().Get("table")
+	// 	db := OpenConnect(name)
+	// 	db.Query()
+	// 	db.Close()
+ 
+	// })
 	r.POST("/import", func(c *gin.Context) {
 		name := c.Request.URL.Query().Get("block")
 		table := c.Request.URL.Query().Get("table")
