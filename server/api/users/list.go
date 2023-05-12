@@ -13,7 +13,6 @@ func HandleList() gin.HandlerFunc {
 		// Init keycloak client
 		client, exists := ctx.Get("keycloak_client")
 		
-
 		if !exists {
 			ctx.AbortWithStatus(http.StatusInternalServerError)
 			return
@@ -27,11 +26,11 @@ func HandleList() gin.HandlerFunc {
 
 		current_unit := utils.GetUnit(ctx.Request.Header.Get("Origin"))
 
-		admin_users, err := client.(*gocloak.GoCloak).GetUsersByRoleName(ctx, admin_token.(string), current_unit, "admin", gocloak.GetUsersByRoleParams{})
-		if err != nil {
-			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
+		// admin_users, err := client.(*gocloak.GoCloak).GetUsersByRoleName(ctx, admin_token.(string), current_unit, "admin", gocloak.GetUsersByRoleParams{})
+		// if err != nil {
+		// 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		// 	return
+		// }
 
 		unitadmin_users, err := client.(*gocloak.GoCloak).GetUsersByRoleName(ctx, admin_token.(string), current_unit, "unit_admin", gocloak.GetUsersByRoleParams{})
 		if err != nil {
@@ -46,7 +45,7 @@ func HandleList() gin.HandlerFunc {
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
-			"admin": admin_users,
+			// "admin": admin_users,
 			"unit_admin": unitadmin_users,
 			"normal": normal_users,
 		})

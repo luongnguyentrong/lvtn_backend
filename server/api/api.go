@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+
 	//"net/url"
 	"os"
 	"path/filepath"
@@ -17,8 +18,10 @@ import (
 	"strings"
 
 	"api.ducluong.monster/api/blocks"
+	"api.ducluong.monster/api/blocks/tables"
 	"api.ducluong.monster/api/superset"
 	"api.ducluong.monster/api/users"
+	"api.ducluong.monster/core"
 	"api.ducluong.monster/shared/db"
 
 	// "time"
@@ -77,8 +80,8 @@ type RowChange struct {
 }
 
 type Update struct {
-	Old string `json:"old"`
-	New string `json:"new"`
+	Old    string `json:"old"`
+	New    string `json:"new"`
 	NewDis string `json:"new_dis"`
 }
 
@@ -90,7 +93,7 @@ type BlockInfo struct {
 
 type CreateBlock struct {
 	DisplayName string `json:"disname"`
-	NorName		string	`json:"norname"`
+	NorName     string `json:"norname"`
 }
 
 const (
@@ -173,8 +176,25 @@ func Handlers() *gin.Engine {
 		log.Fatal(err)
 	}
 
-	// Create new block
-	r.POST("/blocks", middleware.Protected(keycloakDB), middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate())
+	// migrate core models
+	metadataDB.AutoMigrate(&core.Unit{})
+	metadataDB.AutoMigrate(&core.Block{})
+	metadataDB.AutoMigrate(&core.Table{})
+	metadataDB.AutoMigrate(&core.Column{})
+
+	// blocks rest apis
+	blocksRoute := r.Group("/blocks")
+	blocksRoute.Use(middleware.Protected(keycloakDB))
+	{
+		blocksRoute.GET("/", blocks.HandleList(metadataDB))
+		blocksRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate(metadataDB))
+
+		tablesRoute := blocksRoute.Group("/:block_name/tables")
+		{
+			tablesRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), tables.HandleCreate(metadataDB))
+			tablesRoute.GET("/", tables.HandleList(metadataDB))
+		}
+	}
 
 	// units rest apis
 	unitsRoute := r.Group("/units")
@@ -194,6 +214,8 @@ func Handlers() *gin.Engine {
 		usersRoute.POST("/", users.HandleCreate())
 		usersRoute.GET("/", middleware.InjectKeycloak(), users.HandleList())
 	}
+
+	// criteriaRoute := r.Group("/criteria")
 
 	// superset routes
 	supersetRoute := r.Group("/superset")
@@ -482,8 +504,8 @@ func Handlers() *gin.Engine {
 		}
 		db := OpenConnect("hcmut_metadata")
 		sql := `ALTER DATABASE "` + update.Old + `" RENAME TO "` + update.New + `"`
-		sql2 := `UPDATE block_info SET block_name = '` + update.New + `', display_name ='` + update.NewDis + `' WHERE block_name='` + update.Old+ `'`
-		sql3 := `UPDATE user_permission SET blocks = '` + update.New + `' WHERE blocks='` + update.Old+ `'`
+		sql2 := `UPDATE block_info SET block_name = '` + update.New + `', display_name ='` + update.NewDis + `' WHERE block_name='` + update.Old + `'`
+		sql3 := `UPDATE user_permission SET blocks = '` + update.New + `' WHERE blocks='` + update.Old + `'`
 		fmt.Println(sql2)
 		fmt.Println(sql3)
 		db.Exec(sql)
@@ -803,7 +825,7 @@ func Handlers() *gin.Engine {
 	// 	db := OpenConnect(name)
 	// 	db.Query()
 	// 	db.Close()
- 
+
 	// })
 	r.POST("/import", func(c *gin.Context) {
 		name := c.Request.URL.Query().Get("block")

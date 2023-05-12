@@ -64,20 +64,16 @@ def get_env_variable(var_name: str, default: Optional[str] = None) -> str:
 #     DATABASE_DB,
 # )
 
-# OIDC config
-'''
----------------------------KEYCLOACK ----------------------------
-'''
+# ----------------------------------------------------
+# KEYCLOAK AUTHENTICATION CONFIG
+# ----------------------------------------------------
 curr = os.path.abspath(os.getcwd())
 AUTH_TYPE = AUTH_OID
 OIDC_CLIENT_SECRETS =  curr + '/pythonpath/client_secret.json'
 OIDC_ID_TOKEN_COOKIE_SECURE = False
 OIDC_REQUIRE_VERIFIED_EMAIL = False
-OIDC_OPENID_REALM = "master"
-OIDC_INTROSPECTION_AUTH_METHOD = 'client_secret_post'
 CUSTOM_SECURITY_MANAGER = OIDCSecurityManager
-AUTH_USER_REGISTRATION = True
-AUTH_USER_REGISTRATION_ROLE = 'Gamma'
+AUTH_USER_REGISTRATION = False
 
 
 # REDIS_HOST = get_env_variable("REDIS_HOST")

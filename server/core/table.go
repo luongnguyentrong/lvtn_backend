@@ -1,15 +1,15 @@
 package core
 
-import (
-	"time"
-)
+import "time"
 
-type Block struct {
-	Name        *string `json:"name" gorm:"primaryKey"`
-	Realm       *string `json:"realm"`
+type Table struct {
+	ID          uint
+	Name        *string `json:"name"`
+	BlockName   *string `json:"block_name"`
 	DisplayName *string `json:"display_name"`
 	Description *string `json:"description"`
 	CreatedBy   *string `json:"created_by"`
+	Block       Block
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

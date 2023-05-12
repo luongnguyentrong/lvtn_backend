@@ -26,6 +26,7 @@ func HandleCreate() gin.HandlerFunc {
 
 		err := ctx.Bind(&inp)
 		if err != nil {
+			fmt.Println("IN HERE HERE ERE")
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
@@ -34,6 +35,7 @@ func HandleCreate() gin.HandlerFunc {
 		client := gocloak.NewClient(os.Getenv("KEYCLOAK_HOST"))
 		token, err := client.LoginAdmin(ctx, os.Getenv("KEYCLOAK_USERNAME"), os.Getenv("KEYCLOAK_PASSWORD"), "master")
 		if err != nil {
+			fmt.Println("IN HERE")
 			ctx.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
@@ -82,25 +84,25 @@ func HandleCreate() gin.HandlerFunc {
 			return
 		}
 
-		// Create api_server client to perform sso on this unit
-		_, err = client.CreateClient(ctx, token.AccessToken, *inp.UnitName, gocloak.Client{
-			ClientID:                  gocloak.StringP("api_server"),
-			PublicClient:              gocloak.BoolP(false),
-			StandardFlowEnabled:       gocloak.BoolP(true),
-			DirectAccessGrantsEnabled: gocloak.BoolP(true),
-			RedirectURIs: &[]string{
-				"http://localhost:3000/*",
-				fmt.Sprintf("https://%s.ducluong.monster/*", *inp.UnitName),
-			},
-			WebOrigins: &[]string{
-				"http://localhost:5000",
-				"https://api.ducluong.monster",
-			}})
+		// // Create api_server client to perform sso on this unit
+		// _, err = client.CreateClient(ctx, token.AccessToken, *inp.UnitName, gocloak.Client{
+		// 	ClientID:                  gocloak.StringP("api_server"),
+		// 	PublicClient:              gocloak.BoolP(false),
+		// 	StandardFlowEnabled:       gocloak.BoolP(true),
+		// 	DirectAccessGrantsEnabled: gocloak.BoolP(true),
+		// 	RedirectURIs: &[]string{
+		// 		"http://localhost:3000/*",
+		// 		fmt.Sprintf("https://%s.ducluong.monster/*", *inp.UnitName),
+		// 	},
+		// 	WebOrigins: &[]string{
+		// 		"http://localhost:5000",
+		// 		"https://api.ducluong.monster",
+		// 	}})
 
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
-			return
-		}
+		// if err != nil {
+		// 	ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+		// 	return
+		// }
 
 		// Find client scope: role
 		clientScopes, err := client.GetClientScopes(ctx, token.AccessToken, *inp.UnitName)
