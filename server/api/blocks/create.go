@@ -17,6 +17,7 @@ type createBlockInp struct {
 	Name        *string `json:"name" binding:"required"`
 	Description *string `json:"description"`
 	CreatedBy   *string `json:"created_by" binding:"required"`
+	ManagerID   *string `json:"manager_id" binding:"required"`
 }
 
 func HandleCreate(metadataDB *gorm.DB) gin.HandlerFunc {
@@ -34,10 +35,11 @@ func HandleCreate(metadataDB *gorm.DB) gin.HandlerFunc {
 		// insert new block to database
 		newBlock := core.Block{
 			Name:        inp.Name,
-			Realm:       &cur_unit,
+			UnitName:    &cur_unit,
 			DisplayName: inp.DisplayName,
 			Description: inp.Description,
 			CreatedBy:   inp.CreatedBy,
+			ManagerID:   inp.ManagerID,
 		}
 
 		result := metadataDB.Create(&newBlock)
@@ -46,13 +48,14 @@ func HandleCreate(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// open connection to unit database
 		db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/" + cur_unit))
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
 
-		// create corresponding database
+		// create corresponding schema
 		result = db.Exec(fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %s", *inp.Name))
 		if result.Error != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": result.Error.Error()})

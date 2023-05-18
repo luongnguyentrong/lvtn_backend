@@ -189,10 +189,12 @@ func Handlers() *gin.Engine {
 		blocksRoute.GET("/", blocks.HandleList(metadataDB))
 		blocksRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate(metadataDB))
 
-		tablesRoute := blocksRoute.Group("/:block_name/tables")
+		tablesRoute := blocksRoute.Group("/:block_id/tables")
 		{
 			tablesRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), tables.HandleCreate(metadataDB))
 			tablesRoute.GET("/", tables.HandleList(metadataDB))
+			tablesRoute.GET("/:table_id", tables.HandleGet(metadataDB))
+			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
 		}
 	}
 
@@ -228,8 +230,7 @@ func Handlers() *gin.Engine {
 	// ping api
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "dmm",
-			"host":    c.Request.Host,
+			"message": "pong",
 			"origin":  c.Request.Header.Get("Origin"),
 		})
 	})

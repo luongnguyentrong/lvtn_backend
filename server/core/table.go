@@ -3,13 +3,14 @@ package core
 import "time"
 
 type Table struct {
-	ID          uint
+	ID          *uint    `json:"id"`
 	Name        *string `json:"name"`
-	BlockName   *string `json:"block_name"`
-	DisplayName *string `json:"display_name"`
 	Description *string `json:"description"`
-	CreatedBy   *string `json:"created_by"`
+	DisplayName *string `json:"display_name"`
+
+	BlockID     *uint    `json:"block_id"`
 	Block       Block
+
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }

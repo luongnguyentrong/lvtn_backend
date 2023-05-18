@@ -18,11 +18,21 @@ func HandleList(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// fetch block data
+		var block core.Block
+		block.ID = blockData.BlockID
+
+		results := metadataDB.First(&block)
+		if results.Error != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error})
+			return
+		}
+
 		var tables []core.Table
 
-		results := metadataDB.Where("block_name = ?", blockData.BlockName).Find(&tables)
+		results = metadataDB.Where("block_id = ?", block.ID).Find(&tables)
 		if results.Error != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error.Error()})
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error})
 			return
 		}
 

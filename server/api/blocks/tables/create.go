@@ -16,6 +16,7 @@ import (
 
 type colInp struct {
 	Name        *string `json:"name"`
+	IsPrimary   *bool   `json:"is_primary"`
 	DisplayName *string `json:"display_name"`
 	ColumnType  *string `json:"column_type"`
 }
@@ -29,7 +30,7 @@ type createTableInp struct {
 }
 
 type uriData struct {
-	BlockName string `uri:"block_name"`
+	BlockID *uint `uri:"block_id"`
 }
 
 func toSQL(table createTableInp, blockName string) string {
@@ -38,7 +39,7 @@ func toSQL(table createTableInp, blockName string) string {
 	for i, col := range table.Columns {
 		columnDefs[i] = fmt.Sprintf("%s %s", *col.Name, *col.ColumnType)
 
-		if i == 0 {
+		if col.IsPrimary != nil && *col.IsPrimary {
 			columnDefs[i] += " PRIMARY KEY"
 		}
 	}
@@ -65,12 +66,12 @@ func HandleCreate(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// save table metadata to database
 		newTable := core.Table{
 			Name:        inp.Name,
 			DisplayName: inp.DisplayName,
-			BlockName:   &blockData.BlockName,
+			BlockID:     blockData.BlockID,
 			Description: inp.Description,
-			CreatedBy:   inp.CreatedBy,
 		}
 
 		result := metadataDB.Create(&newTable)
@@ -79,30 +80,44 @@ func HandleCreate(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		// for _, col := range inp.Columns {
-		// 	newColumn := core.Column{
-		// 		Name:        col.Name,
-		// 		DisplayName: col.DisplayName,
-		// 		ColumnType:  col.ColumnType,
-		// 		TableName:   inp.Name,
-		// 	}
+		// save table column metadata to database
+		for _, col := range inp.Columns {
+			newColumn := core.Column{
+				Name:        col.Name,
+				DisplayName: col.DisplayName,
+				ColumnType:  col.ColumnType,
+				TableID:     newTable.ID,
+			}
 
-		// 	result = metadataDB.Create(&newColumn)
-		// 	if result.Error != nil {
-		// 		ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": result.Error.Error()})
-		// 		return
-		// 	}
-		// }
+			result = metadataDB.Create(&newColumn)
+			if result.Error != nil {
+				ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": result.Error.Error()})
+				return
+			}
+		}
 
+		// get block data
+		var block core.Block
+		block.ID = blockData.BlockID
+
+		result = metadataDB.First(&block)
+		if result.Error != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": result.Error.Error()})
+			return
+		}
+
+		// get current unit from request origin
 		cur_unit := utils.GetUnit(ctx.Request.Header.Get("Origin"))
 
+		// open database connection to unit's database
 		db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/" + cur_unit))
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
 
-		result = db.Exec(toSQL(inp, blockData.BlockName))
+		// create table in unit's database
+		result = db.Exec(toSQL(inp, *block.Name))
 		if result.Error != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": result.Error.Error()})
 			return
