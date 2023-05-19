@@ -12,21 +12,6 @@ import (
 	"gorm.io/gorm"
 )
 
-func init() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println(err)
-	}
-
-	db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/metadata"))
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	db.AutoMigrate(&core.Unit{})
-	db.AutoMigrate(&core.Block{})
-}
-
 func createMasterUnit() {
 	// Save unit org structure
 	db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/metadata"))
@@ -57,6 +42,11 @@ func createMasterUnit() {
 }
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Println(err)
+	}
+
 	// createMasterUnit()
 
 	api.Handlers().Run()

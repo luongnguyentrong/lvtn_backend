@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+
 	//"net/url"
 	"os"
 	"path/filepath"
@@ -17,7 +18,10 @@ import (
 	"strings"
 
 	"api.ducluong.monster/api/blocks"
+	"api.ducluong.monster/api/blocks/tables"
+	"api.ducluong.monster/api/superset"
 	"api.ducluong.monster/api/users"
+	"api.ducluong.monster/core"
 	"api.ducluong.monster/shared/db"
 
 	// "time"
@@ -76,8 +80,8 @@ type RowChange struct {
 }
 
 type Update struct {
-	Old string `json:"old"`
-	New string `json:"new"`
+	Old    string `json:"old"`
+	New    string `json:"new"`
 	NewDis string `json:"new_dis"`
 }
 
@@ -89,7 +93,7 @@ type BlockInfo struct {
 
 type CreateBlock struct {
 	DisplayName string `json:"disname"`
-	NorName		string	`json:"norname"`
+	NorName     string `json:"norname"`
 }
 
 const (
@@ -150,7 +154,7 @@ func CreateTable(dbname string, name string, cols []string, des []string) {
 func enableCors(router *gin.Engine) {
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With"}
 	router.Use(cors.New(config))
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
@@ -172,12 +176,32 @@ func Handlers() *gin.Engine {
 		log.Fatal(err)
 	}
 
-	// Create new block
-	r.POST("/blocks", middleware.Protected(), middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate())
+	// migrate core models
+	metadataDB.AutoMigrate(&core.Unit{})
+	metadataDB.AutoMigrate(&core.Block{})
+	metadataDB.AutoMigrate(&core.Table{})
+	metadataDB.AutoMigrate(&core.Column{})
+
+	// blocks rest apis
+	blocksRoute := r.Group("/blocks")
+	blocksRoute.Use(middleware.Protected(keycloakDB))
+	{
+		blocksRoute.GET("/", blocks.HandleList(metadataDB))
+		blocksRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate(metadataDB))
+
+		tablesRoute := blocksRoute.Group("/:block_id/tables")
+		{
+			tablesRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), tables.HandleCreate(metadataDB))
+			tablesRoute.GET("/", tables.HandleList(metadataDB))
+			tablesRoute.GET("/:table_id", tables.HandleGet(metadataDB))
+			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
+			tablesRoute.POST("/:table_id/upload", tables.HandleUploadFromExcel(metadataDB))
+		}
+	}
 
 	// units rest apis
 	unitsRoute := r.Group("/units")
-	unitsRoute.Use(middleware.Protected())
+	unitsRoute.Use(middleware.Protected(keycloakDB))
 	{
 		unitsRoute.GET("/", middleware.AllowedRoles("admin"), units.HandleList(metadataDB, keycloakDB))
 		unitsRoute.GET("/org", units.HandleListOrg(metadataDB))
@@ -187,18 +211,28 @@ func Handlers() *gin.Engine {
 
 	// users rest apis
 	usersRoute := r.Group("/users")
-	usersRoute.Use(middleware.Protected())
+	usersRoute.Use(middleware.Protected(keycloakDB))
 	usersRoute.Use(middleware.AllowedRoles("admin", "unit_admin"))
 	{
 		usersRoute.POST("/", users.HandleCreate())
+		usersRoute.GET("/", middleware.InjectKeycloak(), users.HandleList())
+	}
+
+	// criteriaRoute := r.Group("/criteria")
+
+	// superset routes
+	supersetRoute := r.Group("/superset")
+	supersetRoute.GET("/", middleware.InjectSupersetToken(), superset.HandleList())
+	supersetRoute.Use(middleware.Protected(keycloakDB))
+	{
+		supersetRoute.POST("/", middleware.InjectSupersetToken(), superset.HandleCreate())
 	}
 
 	// ping api
 	r.GET("/ping", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message": "dmm",
-			"host":  c.Request.Host,
-			"origin": c.Request.Header.Get("Origin"),	
+			"message": "pong",
+			"origin":  c.Request.Header.Get("Origin"),
 		})
 	})
 
@@ -472,8 +506,8 @@ func Handlers() *gin.Engine {
 		}
 		db := OpenConnect("hcmut_metadata")
 		sql := `ALTER DATABASE "` + update.Old + `" RENAME TO "` + update.New + `"`
-		sql2 := `UPDATE block_info SET block_name = '` + update.New + `', display_name ='` + update.NewDis + `' WHERE block_name='` + update.Old+ `'`
-		sql3 := `UPDATE user_permission SET blocks = '` + update.New + `' WHERE blocks='` + update.Old+ `'`
+		sql2 := `UPDATE block_info SET block_name = '` + update.New + `', display_name ='` + update.NewDis + `' WHERE block_name='` + update.Old + `'`
+		sql3 := `UPDATE user_permission SET blocks = '` + update.New + `' WHERE blocks='` + update.Old + `'`
 		fmt.Println(sql2)
 		fmt.Println(sql3)
 		db.Exec(sql)
@@ -587,7 +621,7 @@ func Handlers() *gin.Engine {
 		db.Close()
 	})
 
-	r.GET("/show_folders",middleware.Protected(), func(ctx *gin.Context) {
+	r.GET("/show_folders", middleware.Protected(keycloakDB), func(ctx *gin.Context) {
 		sql := "SELECT datname FROM pg_database"
 		db := OpenConnect("postgres")
 		dbs, err := db.Query(sql)
@@ -794,7 +828,7 @@ func Handlers() *gin.Engine {
 	// 	db := OpenConnect(name)
 	// 	db.Query()
 	// 	db.Close()
- 
+
 	// })
 	r.POST("/import", func(c *gin.Context) {
 		name := c.Request.URL.Query().Get("block")

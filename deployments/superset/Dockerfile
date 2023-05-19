@@ -9,6 +9,10 @@ RUN pip install itsdangerous==2.0.1
 RUN pip install flask_oidc==1.3.0
 
 USER superset
+
+COPY *.py ./pythonpath/
+COPY client_secret.json ./pythonpath/
+
 RUN superset fab create-admin \
               --username admin \
               --firstname Superset \
@@ -17,4 +21,5 @@ RUN superset fab create-admin \
               --password UamqhxiNA/HfwT1mR33bk1nZ92+XFEnmLvckpfp3DbuKaoyPXYVREJgC
 RUN superset db upgrade
 RUN superset init
+
 EXPOSE 8088
