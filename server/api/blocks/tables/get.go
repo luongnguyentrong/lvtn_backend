@@ -89,6 +89,9 @@ func HandleGet(metadataDB *gorm.DB) gin.HandlerFunc {
 		var result []map[string]any = []map[string]any{}
 		db.Raw(fmt.Sprintf("SELECT * FROM %s.%s", *block.Name, *table.Name)).Scan(&result)
 
+		postgres, _ := db.DB()
+		postgres.Close()
+
 		ctx.JSON(http.StatusOK, gin.H{
 			"columns": truncated_cols,
 			"data":    result,

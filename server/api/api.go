@@ -154,7 +154,7 @@ func CreateTable(dbname string, name string, cols []string, des []string) {
 func enableCors(router *gin.Engine) {
 	config := cors.DefaultConfig()
 	config.AllowAllOrigins = true
-	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization"}
+	config.AllowHeaders = []string{"Origin", "Content-Length", "Content-Type", "Authorization", "X-Requested-With"}
 	router.Use(cors.New(config))
 	router.Use(gin.Logger())
 	router.Use(gin.Recovery())
@@ -195,6 +195,7 @@ func Handlers() *gin.Engine {
 			tablesRoute.GET("/", tables.HandleList(metadataDB))
 			tablesRoute.GET("/:table_id", tables.HandleGet(metadataDB))
 			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
+			tablesRoute.POST("/:table_id/upload", tables.HandleUploadFromExcel(metadataDB))
 		}
 	}
 
