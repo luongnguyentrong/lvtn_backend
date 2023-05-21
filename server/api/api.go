@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"api.ducluong.monster/api/blocks"
+	"api.ducluong.monster/api/blocks/folders"
 	"api.ducluong.monster/api/blocks/tables"
 	"api.ducluong.monster/api/superset"
 	"api.ducluong.monster/api/users"
@@ -196,6 +197,12 @@ func Handlers() *gin.Engine {
 			tablesRoute.GET("/:table_id", tables.HandleGet(metadataDB))
 			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
 			tablesRoute.POST("/:table_id/upload", tables.HandleUploadFromExcel(metadataDB))
+		}
+
+		foldersRoute := blocksRoute.Group("/:block_id/folders")
+		{
+			foldersRoute.GET("/", folders.HandleList(metadataDB))
+			foldersRoute.GET("/:folder_name", folders.HandleListFile(metadataDB))
 		}
 	}
 
