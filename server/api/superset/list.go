@@ -1,47 +1,34 @@
 package superset
 
 import (
-	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 
+	"api.ducluong.monster/utils"
 	"github.com/gin-gonic/gin"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func HandleList() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		superset_token, exists := ctx.Get("superset_admin_token")
-		if !exists {
-			ctx.AbortWithStatus(http.StatusInternalServerError)
-			return
-		}
+		// open connection to unit's superset database
+		cur_unit := utils.GetUnit(ctx.Request.Header.Get("Origin"))
 
-		URL := os.Getenv("SUPERSET_HOST") + "api/v1/dashboard/"
-
-		req, _ := http.NewRequest("GET", URL, nil)
-
-		// Add authorization header with bearer token
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", superset_token))
-
-		client := &http.Client{}
-		resp, err := client.Do(req)
-
+		db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/superset_" + cur_unit))
 		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
 
-		defer resp.Body.Close()
+		// query dashboard table
+		var result []map[string]any = []map[string]any{}
+		db.Raw("SELECT * FROM dashboards").Scan(&result)
 
-		var data map[string]any
-		if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
-			return
-		}
+		// close connection
+		postgres, _ := db.DB()
+		postgres.Close()
 
-		ctx.JSON(http.StatusOK, gin.H{
-			"dashboards": data["result"],
-		})
+		ctx.JSON(http.StatusOK, result)
 	}
 }

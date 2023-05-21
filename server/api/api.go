@@ -222,10 +222,10 @@ func Handlers() *gin.Engine {
 
 	// superset routes
 	supersetRoute := r.Group("/superset")
-	supersetRoute.GET("/", middleware.InjectSupersetToken(), superset.HandleList())
 	supersetRoute.Use(middleware.Protected(keycloakDB))
 	{
 		supersetRoute.POST("/", middleware.InjectSupersetToken(), superset.HandleCreate())
+		supersetRoute.GET("/", superset.HandleList())
 	}
 
 	// ping api
