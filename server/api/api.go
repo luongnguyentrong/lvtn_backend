@@ -19,6 +19,7 @@ import (
 
 	"api.ducluong.monster/api/blocks"
 	"api.ducluong.monster/api/blocks/references"
+	"api.ducluong.monster/api/blocks/folders"
 	"api.ducluong.monster/api/blocks/tables"
 	"api.ducluong.monster/api/blocks/tables/columns"
 	"api.ducluong.monster/api/superset"
@@ -211,6 +212,12 @@ func Handlers() *gin.Engine {
 			{
 				tableRoute.GET("/columns", columns.HandleList(metadataDB))
 			}
+		}
+
+		foldersRoute := blocksRoute.Group("/:block_id/folders")
+		{
+			foldersRoute.GET("/", folders.HandleList(metadataDB))
+			foldersRoute.GET("/:folder_name", folders.HandleListFile(metadataDB))
 		}
 	}
 
@@ -694,6 +701,7 @@ func Handlers() *gin.Engine {
 	r.POST("/upload_files", func(ctx *gin.Context) {
 		file, err := ctx.FormFile("upload")
 		name := ctx.Request.URL.Query().Get("block")
+		folder := ctx.Request.URL.Query().Get("unit")
 		if err != nil {
 			panic(err)
 		}
@@ -711,7 +719,6 @@ func Handlers() *gin.Engine {
 		}
 		client := s3.NewFromConfig(cfg)
 		uploader := manager.NewUploader(client)
-		folder := "hcmut"
 		objectKey := folder + "/" + name + "/" + file.Filename
 		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{
 			Bucket: aws.String("lvtnstorage"),
@@ -735,7 +742,7 @@ func Handlers() *gin.Engine {
 		src, err := file.Open()
 
 		f, err := excelize.OpenReader(src)
-		if err != nil {
+		if err != nil {		
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -794,7 +801,8 @@ func Handlers() *gin.Engine {
 	r.GET("/list-items", func(c *gin.Context) {
 		bucketName := "lvtnstorage"
 		name := c.Request.URL.Query().Get("block")
-		folderPath := "hcmut/"
+		supPath := c.Request.URL.Query().Get("unit")
+		folderPath := supPath + "/"
 		folderPath += name + "/"
 
 		// Set the S3 parameters for listing objects
