@@ -18,7 +18,9 @@ import (
 	"strings"
 
 	"api.ducluong.monster/api/blocks"
+	"api.ducluong.monster/api/blocks/references"
 	"api.ducluong.monster/api/blocks/tables"
+	"api.ducluong.monster/api/blocks/tables/columns"
 	"api.ducluong.monster/api/superset"
 	"api.ducluong.monster/api/users"
 	"api.ducluong.monster/core"
@@ -181,6 +183,7 @@ func Handlers() *gin.Engine {
 	metadataDB.AutoMigrate(&core.Block{})
 	metadataDB.AutoMigrate(&core.Table{})
 	metadataDB.AutoMigrate(&core.Column{})
+	metadataDB.AutoMigrate(&core.Reference{})
 
 	// blocks rest apis
 	blocksRoute := r.Group("/blocks")
@@ -189,6 +192,13 @@ func Handlers() *gin.Engine {
 		blocksRoute.GET("/", blocks.HandleList(metadataDB))
 		blocksRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate(metadataDB))
 
+		referenceRoute := blocksRoute.Group("/:block_id/refs")
+		{
+			referenceRoute.GET("/", references.HandleList(metadataDB))
+			referenceRoute.POST("/", references.HandleCreate(metadataDB))
+			referenceRoute.DELETE("/:ref_id", references.HandleDelete(metadataDB))
+		}
+
 		tablesRoute := blocksRoute.Group("/:block_id/tables")
 		{
 			tablesRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), tables.HandleCreate(metadataDB))
@@ -196,6 +206,11 @@ func Handlers() *gin.Engine {
 			tablesRoute.GET("/:table_id", tables.HandleGet(metadataDB))
 			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
 			tablesRoute.POST("/:table_id/upload", tables.HandleUploadFromExcel(metadataDB))
+
+			tableRoute := tablesRoute.Group("/:table_id")
+			{
+				tableRoute.GET("/columns", columns.HandleList(metadataDB))
+			}
 		}
 	}
 
