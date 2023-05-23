@@ -3,12 +3,12 @@ package folders
 import (
 	"fmt"
 	"net/http"
-	"os"
 
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/utils"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-gonic/gin"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
@@ -17,39 +17,40 @@ type getInp struct {
 	TableID *uint `uri:"table_id"`
 }
 
-func HandleList(metadataDB *gorm.DB) gin.HandlerFunc {
+func HandleList(metadataDB *gorm.DB, svc *s3.S3) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
+		// get uri params
 		var inp getInp
 		err := ctx.ShouldBindUri(&inp)
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
+
+		// get block info
 		var block core.Block
 		block.ID = inp.BlockID
 
-		results := metadataDB.First(&block)
-
-		//open 
-		cur_unit := utils.GetUnit(ctx.Request.Header.Get("Origin"))
-		db, err := gorm.Open(postgres.Open(os.Getenv("POSTGRES_DSN") + "/" + cur_unit))
+		err = metadataDB.First(&block).Error
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
 
-		//sql := "SELECT * FROM " + *block.Name + ".folders"
+		// list folders from s3
+		resp, err := svc.ListObjectsV2(&s3.ListObjectsV2Input{
+			Bucket:    aws.String(fmt.Sprintf("%sstorage", utils.GetUnit(ctx.Request.Header.Get("Origin")))),
+			Prefix:    aws.String(*block.Name + "/"),
+			Delimiter: aws.String("/"),
+		})
 
-		var result []map[string]any = []map[string]any{}
-		db.Raw(fmt.Sprintf("SELECT * FROM %s.%s",*block.Name,"folders")).Scan(&result)
-		
-		fmt.Println(result)
-
-		if results.Error != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error.Error()})
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
 		}
 
-		ctx.JSON(http.StatusOK, result)
+		ctx.JSON(http.StatusOK, gin.H{
+			"folders": resp.CommonPrefixes,
+		})
 	}
 }
