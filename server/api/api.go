@@ -68,6 +68,8 @@ func Handlers() *gin.Engine {
 		blocksRoute.GET("/", blocks.HandleList(metadataDB))
 		blocksRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate(metadataDB))
 		blocksRoute.GET("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
+		blocksRoute.DELETE("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
+		blocksRoute.PUT("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
 
 		referenceRoute := blocksRoute.Group("/:block_id/refs")
 		{
