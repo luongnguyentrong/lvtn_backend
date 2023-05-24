@@ -94,6 +94,7 @@ func Handlers() *gin.Engine {
 		{
 			foldersRoute.GET("/", folders.HandleList(metadataDB, svc))
 			foldersRoute.GET("/:folder_name", folders.HandleListFile(metadataDB))
+			foldersRoute.GET("/add/:new_folder_name", folders.HandleAdd(metadataDB))
 		}
 	}
 
