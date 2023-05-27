@@ -10,8 +10,7 @@ import (
 )
 
 type updateBlock struct {
-	DisplayName *string `json:"display_name"`
-	// Name        *string        `json:"name" binding:"required"`
+	DisplayName *string         `json:"display_name"`
 	Description *string         `json:"description"`
 	ManagerIDs  *pq.StringArray `json:"manager_ids"`
 }

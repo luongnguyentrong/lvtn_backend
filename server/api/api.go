@@ -83,6 +83,8 @@ func Handlers() *gin.Engine {
 			tablesRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), tables.HandleCreate(metadataDB))
 			tablesRoute.GET("/", tables.HandleList(metadataDB))
 			tablesRoute.GET("/:table_id", tables.HandleGet(metadataDB))
+			tablesRoute.DELETE("/:table_id", tables.HandleDelete(metadataDB))
+
 			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
 			tablesRoute.POST("/:table_id/upload", tables.HandleUploadFromExcel(metadataDB))
 
