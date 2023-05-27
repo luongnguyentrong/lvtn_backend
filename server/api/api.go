@@ -65,10 +65,10 @@ func Handlers() *gin.Engine {
 	blocksRoute := r.Group("/blocks")
 	blocksRoute.Use(middleware.Protected(keycloakDB))
 	{
-		blocksRoute.GET("/", blocks.HandleList(metadataDB))
+		blocksRoute.GET("/", blocks.HandleList(metadataDB, keycloakDB))
 		blocksRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate(metadataDB))
 		blocksRoute.GET("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
-		blocksRoute.DELETE("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
+		blocksRoute.DELETE("/:block_id", blocks.HandleDelete(metadataDB))
 		blocksRoute.PUT("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
 
 		referenceRoute := blocksRoute.Group("/:block_id/refs")
