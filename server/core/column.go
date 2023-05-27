@@ -7,5 +7,5 @@ type Column struct {
 	IsPrimary   *bool   `json:"is_primary" gorm:"default:false"`
 	ColumnType  *string `json:"column_type"`
 	TableID     *uint   `json:"table_id"`
-	Table       Table
+	Table       Table   `gorm:"constraint:OnUpdate:CASCADE,OnDelete:CASCADE;"`
 }
