@@ -69,7 +69,7 @@ func HandleGet(metadataDB *gorm.DB) gin.HandlerFunc {
 
 		// get columns metadata from database
 		var cols []core.Column
-		results = metadataDB.Where("table_id = ?", inp.TableID).Find(&cols)
+		results = metadataDB.Where("table_id = ?", inp.TableID).Order("\"order\" ASC").Find(&cols)
 		if results.Error != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": results.Error})
 			return
@@ -94,6 +94,7 @@ func HandleGet(metadataDB *gorm.DB) gin.HandlerFunc {
 		postgres.Close()
 
 		ctx.JSON(http.StatusOK, gin.H{
+			"table": table,
 			"columns": truncated_cols,
 			"data":    result,
 		})

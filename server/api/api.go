@@ -6,19 +6,22 @@ import (
 	"api.ducluong.monster/api/blocks/references"
 	"api.ducluong.monster/api/blocks/tables"
 	"api.ducluong.monster/api/blocks/tables/columns"
+	"api.ducluong.monster/api/requests"
 	"api.ducluong.monster/api/superset"
 	"api.ducluong.monster/api/units"
 	"api.ducluong.monster/api/users"
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/middleware"
 	"api.ducluong.monster/shared/db"
+
 	// "github.com/360EntSecGroup-Skylar/excelize"
+	"log"
+	"net/http"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"log"
-	"net/http"
 )
 
 func enableCors(router *gin.Engine) {
@@ -60,14 +63,26 @@ func Handlers() *gin.Engine {
 	metadataDB.AutoMigrate(&core.Table{})
 	metadataDB.AutoMigrate(&core.Column{})
 	metadataDB.AutoMigrate(&core.Reference{})
+	metadataDB.AutoMigrate(&core.Request{})
+
+	// requests rest apis
+	requestsRoute := r.Group("/requests")
+	requestsRoute.Use(middleware.Protected(keycloakDB))
+	{
+		requestsRoute.POST("/", requests.HandleCreate(metadataDB))
+		requestsRoute.GET("/", middleware.AllowedRoles("admin"), requests.HandleCreate(metadataDB))
+	}
+
 
 	// blocks rest apis
 	blocksRoute := r.Group("/blocks")
 	blocksRoute.Use(middleware.Protected(keycloakDB))
 	{
-		blocksRoute.GET("/", blocks.HandleList(metadataDB))
+		blocksRoute.GET("/", blocks.HandleList(metadataDB, keycloakDB))
 		blocksRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), blocks.HandleCreate(metadataDB))
 		blocksRoute.GET("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
+		blocksRoute.DELETE("/:block_id", blocks.HandleDelete(metadataDB))
+		blocksRoute.PUT("/:block_id", blocks.HandleUpdate(metadataDB))
 		blocksRoute.GET("/:block_id/criteria/get", blocks.HandleListCriteria(metadataDB))
 		blocksRoute.GET("/:block_id/criteria/:crit_id/get", blocks.HandleListEvidence(metadataDB))
 		blocksRoute.POST("/:block_id/criteria/add", blocks.HandleAddCriteria(metadataDB))
@@ -84,6 +99,8 @@ func Handlers() *gin.Engine {
 			tablesRoute.POST("/", middleware.AllowedRoles("admin", "unit_admin"), tables.HandleCreate(metadataDB))
 			tablesRoute.GET("/", tables.HandleList(metadataDB))
 			tablesRoute.GET("/:table_id", tables.HandleGet(metadataDB))
+			tablesRoute.DELETE("/:table_id", tables.HandleDelete(metadataDB))
+
 			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
 			tablesRoute.POST("/:table_id/upload", tables.HandleUploadFromExcel(metadataDB))
 

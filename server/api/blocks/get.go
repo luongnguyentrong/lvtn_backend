@@ -59,17 +59,20 @@ func HandleGet(metadataDB *gorm.DB, keycloakDB *gorm.DB) gin.HandlerFunc {
 		sqlDB.Close()
 
 		// get manager info
-		var manager map[string]any
-		err = keycloakDB.Raw("SELECT * FROM user_entity WHERE id = ?", *block.ManagerID).Scan(&manager).Error
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-			return
+		managers := make([]map[string]any, len(block.ManagerIDs))
+
+		for j, manager_id := range block.ManagerIDs {
+			err := keycloakDB.Raw("SELECT * FROM user_entity WHERE id = ?", manager_id).Scan(&managers[j]).Error
+			if err != nil {
+				ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+				return
+			}
 		}
 
 		ctx.JSON(http.StatusOK, gin.H{
 			"block":       block,
 			"schema_size": schemaSize.SchemaSize,
-			"manager":     manager,
+			"managers":    managers,
 		})
 	}
 }
