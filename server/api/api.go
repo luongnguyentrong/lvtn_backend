@@ -6,19 +6,22 @@ import (
 	"api.ducluong.monster/api/blocks/references"
 	"api.ducluong.monster/api/blocks/tables"
 	"api.ducluong.monster/api/blocks/tables/columns"
+	"api.ducluong.monster/api/requests"
 	"api.ducluong.monster/api/superset"
 	"api.ducluong.monster/api/units"
 	"api.ducluong.monster/api/users"
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/middleware"
 	"api.ducluong.monster/shared/db"
+
 	// "github.com/360EntSecGroup-Skylar/excelize"
+	"log"
+	"net/http"
+
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"log"
-	"net/http"
 )
 
 func enableCors(router *gin.Engine) {
@@ -60,6 +63,16 @@ func Handlers() *gin.Engine {
 	metadataDB.AutoMigrate(&core.Table{})
 	metadataDB.AutoMigrate(&core.Column{})
 	metadataDB.AutoMigrate(&core.Reference{})
+	metadataDB.AutoMigrate(&core.Request{})
+
+	// requests rest apis
+	requestsRoute := r.Group("/requests")
+	requestsRoute.Use(middleware.Protected(keycloakDB))
+	{
+		requestsRoute.POST("/", requests.HandleCreate(metadataDB))
+		requestsRoute.GET("/", middleware.AllowedRoles("admin"), requests.HandleCreate(metadataDB))
+	}
+
 
 	// blocks rest apis
 	blocksRoute := r.Group("/blocks")
