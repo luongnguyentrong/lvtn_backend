@@ -86,7 +86,7 @@ func Handlers() *gin.Engine {
 		blocksRoute.GET("/:block_id/criteria/get", blocks.HandleListCriteria(metadataDB))
 		blocksRoute.GET("/:block_id/criteria/:crit_id/get", blocks.HandleListEvidence(metadataDB))
 		blocksRoute.POST("/:block_id/criteria/add", blocks.HandleAddCriteria(metadataDB))
-		blocksRoute.POST("/:block_id/criteria/:crit_id/evi/add", blocks.HandleAddEvidence(metadataDB))
+		blocksRoute.POST("/:block_id/criteria/:crit_id/source/add", blocks.HandleAddEvidence(metadataDB))
 		referenceRoute := blocksRoute.Group("/:block_id/refs")
 		{
 			referenceRoute.GET("/", references.HandleList(metadataDB))

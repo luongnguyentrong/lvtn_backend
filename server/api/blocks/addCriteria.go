@@ -2,6 +2,7 @@ package blocks
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -19,9 +20,9 @@ type addCriteriaInp struct{
 }
 
 type addEviInp struct{
-	Id 	     int       `json:"id"`
-	CritId   int       `json:"crit_id"`
-	Contents string    `json:"contents"`
+	CritId   int       `json:"id"`
+	Contents string    `json:"name"`
+	Title    string    `json:"title"`
 }
 
 func HandleAddCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
@@ -77,7 +78,7 @@ func HandleAddCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 
 func HandleAddEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var inp getInp
+		var inp getEvidenceInp
 		var inpBody addEviInp
 
 		err := ctx.ShouldBindUri(&inp)
@@ -112,8 +113,9 @@ func HandleAddEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 			log.Fatal(err)
 		}
 		
-		sql := "INSERT INTO " + *block.Name +".evidences(crit_id,id,contents) VALUES(" + strconv.Itoa(inpBody.CritId)+ `, `+  strconv.Itoa(inpBody.Id) + `, '`+ inpBody.Contents +`')`
+		sql := "INSERT INTO " + *block.Name +".evidences(crit_id,id,contents,title) VALUES(" + strconv.Itoa(inpBody.CritId)+ `, `+  strconv.Itoa(int(*inp.CritID)) + `, '`+ inpBody.Contents +`', '` + inpBody.Title+ `')`
 
+		fmt.Println(sql)
 		if err := pckDB.Exec(sql).Error; err != nil {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
 			return
