@@ -82,7 +82,10 @@ func Handlers() *gin.Engine {
 		blocksRoute.GET("/:block_id", blocks.HandleGet(metadataDB, keycloakDB))
 		blocksRoute.DELETE("/:block_id", blocks.HandleDelete(metadataDB))
 		blocksRoute.PUT("/:block_id", blocks.HandleUpdate(metadataDB))
-
+		blocksRoute.GET("/:block_id/criteria/get", blocks.HandleListCriteria(metadataDB))
+		blocksRoute.GET("/:block_id/criteria/:crit_id/get", blocks.HandleListEvidence(metadataDB))
+		blocksRoute.POST("/:block_id/criteria/add", blocks.HandleAddCriteria(metadataDB))
+		blocksRoute.POST("/:block_id/criteria/:crit_id/source/add", blocks.HandleAddEvidence(metadataDB))
 		referenceRoute := blocksRoute.Group("/:block_id/refs")
 		{
 			referenceRoute.GET("/", references.HandleList(metadataDB))
@@ -111,7 +114,9 @@ func Handlers() *gin.Engine {
 			foldersRoute.GET("/", folders.HandleList(metadataDB, svc))
 			foldersRoute.GET("/:folder_name", folders.HandleListFile(metadataDB))
 			foldersRoute.GET("/add/:new_folder_name", folders.HandleAdd(metadataDB))
+			foldersRoute.POST("/:folder_name/upload",folders.HandleUploadFile(metadataDB))
 		}
+
 	}
 
 	// units rest apis
