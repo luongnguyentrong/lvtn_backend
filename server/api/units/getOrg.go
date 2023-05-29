@@ -4,18 +4,22 @@ import (
 	"net/http"
 
 	"api.ducluong.monster/core"
-	"api.ducluong.monster/utils"
 	"github.com/Nerzal/gocloak/v13"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
+
+func preload(d *gorm.DB) *gorm.DB {
+	return d.Preload("Children", preload)
+}
 
 func HandleListOrg(metadataDB *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		resultUnit := core.Unit{}
-		resultUnit.Name = gocloak.StringP(utils.GetUnit(ctx.Request.Header.Get("Origin"))) 
+		resultUnit.Name = gocloak.StringP("master")
 
-		result := metadataDB.Preload("Children").Find(&resultUnit)
+		result := metadataDB.Preload(clause.Associations, preload).Find(&resultUnit)
 		if result.Error != nil {
 			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": result.Error.Error()})
 			return

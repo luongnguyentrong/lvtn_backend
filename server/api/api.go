@@ -13,15 +13,12 @@ import (
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/middleware"
 	"api.ducluong.monster/shared/db"
-
-	// "github.com/360EntSecGroup-Skylar/excelize"
-	"log"
-	"net/http"
-
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"log"
+	"net/http"
 )
 
 func enableCors(router *gin.Engine) {
@@ -70,9 +67,11 @@ func Handlers() *gin.Engine {
 	requestsRoute.Use(middleware.Protected(keycloakDB))
 	{
 		requestsRoute.POST("/", requests.HandleCreate(metadataDB))
-		requestsRoute.GET("/", middleware.AllowedRoles("admin"), requests.HandleCreate(metadataDB))
-	}
+		requestsRoute.GET("/", middleware.AllowedRoles("admin"), requests.HandleList(metadataDB, keycloakDB))
 
+		requestDetails := requestsRoute.Group("/:request_id")
+		requestDetails.POST("/approve", requests.HandleApprove(metadataDB))
+	}
 
 	// blocks rest apis
 	blocksRoute := r.Group("/blocks")
@@ -119,10 +118,10 @@ func Handlers() *gin.Engine {
 	unitsRoute := r.Group("/units")
 	unitsRoute.Use(middleware.Protected(keycloakDB))
 	{
-		unitsRoute.GET("/", middleware.AllowedRoles("admin"), units.HandleList(metadataDB, keycloakDB))
-		unitsRoute.GET("/org", units.HandleListOrg(metadataDB))
-		unitsRoute.GET("/:name", units.HandleGet(metadataDB))
-		unitsRoute.POST("/", middleware.AllowedRoles("admin"), units.HandleCreate())
+		unitsRoute.GET("/", units.HandleList(metadataDB, keycloakDB))
+		unitsRoute.GET("/organizations", units.HandleListOrg(metadataDB))
+		unitsRoute.GET("/:name", units.HandleGet(metadataDB, keycloakDB))
+		unitsRoute.POST("/", middleware.AllowedRoles("admin"), middleware.InjectKeycloak(), units.HandleCreate(metadataDB))
 	}
 
 	// users rest apis
