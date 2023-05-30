@@ -20,7 +20,7 @@ type addCriteriaInp struct{
 }
 
 type addEviInp struct{
-	CritId   int       `json:"id"`
+	Id   int           `json:"id"`
 	Contents string    `json:"name"`
 	Title    string    `json:"title"`
 }
@@ -113,7 +113,7 @@ func HandleAddEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 			log.Fatal(err)
 		}
 		
-		sql := "INSERT INTO " + *block.Name +".evidences(crit_id,id,contents,title) VALUES(" + strconv.Itoa(inpBody.CritId)+ `, `+  strconv.Itoa(int(*inp.CritID)) + `, '`+ inpBody.Contents +`', '` + inpBody.Title+ `')`
+		sql := "INSERT INTO " + *block.Name +".evidences(crit_id,id,contents,title) VALUES(" + strconv.Itoa(int(*inp.CritID))+ `, `+  strconv.Itoa(inpBody.Id) + `, '`+ inpBody.Contents +`', '` + inpBody.Title+ `')`
 
 		fmt.Println(sql)
 		if err := pckDB.Exec(sql).Error; err != nil {
