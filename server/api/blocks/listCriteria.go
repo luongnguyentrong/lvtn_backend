@@ -41,7 +41,7 @@ func HandleListEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 		
 
 		var evidences []map[string]interface{}
-		err = pckDB.Raw("SELECT id,contents,title FROM " + *block.Name + ".evidences WHERE crit_id = " + strconv.FormatUint(*inp.CritID,10)).Scan(&evidences).Error
+		err = pckDB.Raw("SELECT id,contents,title FROM " + *block.Name + ".evidences WHERE crit_id = " + strconv.FormatUint(*inp.CritID,10)+ " ORDER BY id").Scan(&evidences).Error
 		if err != nil {
 			log.Fatal(err)
 		}
