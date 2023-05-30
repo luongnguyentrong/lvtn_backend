@@ -61,6 +61,7 @@ func Handlers() *gin.Engine {
 	metadataDB.AutoMigrate(&core.Column{})
 	metadataDB.AutoMigrate(&core.Reference{})
 	metadataDB.AutoMigrate(&core.Request{})
+	metadataDB.AutoMigrate(&core.BlockAccess{})
 
 	// requests rest apis
 	requestsRoute := r.Group("/requests")
@@ -114,7 +115,7 @@ func Handlers() *gin.Engine {
 			foldersRoute.GET("/", folders.HandleList(metadataDB, svc))
 			foldersRoute.GET("/:folder_name", folders.HandleListFile(metadataDB))
 			foldersRoute.GET("/add/:new_folder_name", folders.HandleAdd(metadataDB))
-			foldersRoute.POST("/:folder_name/upload",folders.HandleUploadFile(metadataDB))
+			foldersRoute.POST("/:folder_name/upload", folders.HandleUploadFile(metadataDB))
 		}
 
 	}
@@ -134,8 +135,10 @@ func Handlers() *gin.Engine {
 	usersRoute.Use(middleware.Protected(keycloakDB))
 	usersRoute.Use(middleware.AllowedRoles("admin", "unit_admin"))
 	{
-		usersRoute.POST("/", users.HandleCreate())
-		usersRoute.GET("/", middleware.InjectKeycloak(), users.HandleList())
+		usersRoute.POST("/", users.HandleCreate(metadataDB))
+		usersRoute.PUT("/:user_id", middleware.InjectKeycloak(), users.HandleUpdate(metadataDB))
+		usersRoute.DELETE("/:user_id", middleware.InjectKeycloak(), users.HandleDelete(metadataDB))
+		usersRoute.GET("/", middleware.InjectKeycloak(), users.HandleList(metadataDB))
 	}
 
 	// superset routes
