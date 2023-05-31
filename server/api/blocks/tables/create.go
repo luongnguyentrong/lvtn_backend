@@ -77,6 +77,13 @@ func HandleCreate(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// get data from uri
+		err = ctx.ShouldBindUri(&blockData)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+
 		// get block data
 		var block core.Block
 		block.ID = blockData.BlockID
@@ -84,13 +91,6 @@ func HandleCreate(metadataDB *gorm.DB) gin.HandlerFunc {
 		result := metadataDB.First(&block)
 		if result.Error != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": result.Error.Error()})
-			return
-		}
-
-		// get data from uri
-		err = ctx.ShouldBindUri(&blockData)
-		if err != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 
