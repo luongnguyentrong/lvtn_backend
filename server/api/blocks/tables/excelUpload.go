@@ -2,7 +2,6 @@ package tables
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,7 +65,8 @@ func HandleUploadFromExcel(metadataDB *gorm.DB) gin.HandlerFunc {
 		rows := excel.GetRows(excel.GetSheetName(1))
 		pckDB, err := db.Create("pck")
 		if err != nil {
-			log.Fatal(err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
+			return
 		}
 
 		tx := pckDB.Begin()
