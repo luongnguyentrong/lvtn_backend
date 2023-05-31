@@ -102,6 +102,7 @@ func Handlers() *gin.Engine {
 			tablesRoute.DELETE("/:table_id", tables.HandleDelete(metadataDB))
 
 			tablesRoute.POST("/:table_id/data", tables.HandleInsert(metadataDB))
+			tablesRoute.DELETE("/:table_id/data", tables.HandleRemove(metadataDB))
 			tablesRoute.POST("/:table_id/upload", tables.HandleUploadFromExcel(metadataDB))
 
 			tableRoute := tablesRoute.Group("/:table_id")

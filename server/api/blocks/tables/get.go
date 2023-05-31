@@ -28,7 +28,9 @@ func truncate(cols []core.Column) []column {
 	var new_cols = make([]column, len(cols))
 
 	for i, col := range cols {
-		new_cols[i].Title = col.DisplayName
+		title := fmt.Sprintf("%s (%s)", *col.DisplayName, *col.Name)
+
+		new_cols[i].Title = &title
 		new_cols[i].DataIndex = col.Name
 		new_cols[i].ColumnType = col.ColumnType
 		new_cols[i].IsPrimary = col.IsPrimary
@@ -93,10 +95,19 @@ func HandleGet(metadataDB *gorm.DB) gin.HandlerFunc {
 		postgres, _ := db.DB()
 		postgres.Close()
 
+		// get foreign keys
+		var refs []core.Reference
+		err = metadataDB.Where("block_id = ? and table_name = ?", *block.ID, *table.Name).Find(&refs).Error
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+
 		ctx.JSON(http.StatusOK, gin.H{
-			"table": table,
+			"table":   table,
 			"columns": truncated_cols,
 			"data":    result,
+			"refs":    refs,
 		})
 	}
 }

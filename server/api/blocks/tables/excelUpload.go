@@ -2,17 +2,30 @@ package tables
 
 import (
 	"fmt"
-	"log"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/shared/db"
+	"api.ducluong.monster/utils"
 	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
+
+func build_insert(row []string, cols []core.Column) string {
+	arr := []string{}
+
+	for i, col := range row {
+		if strings.Contains(*cols[i].ColumnType, "varchar") {
+			arr = append(arr, fmt.Sprintf("'%s'", col))
+		} else {
+			arr = append(arr, col)
+		}
+	}
+
+	return "(" + strings.Join(arr[:], ",") + ")"
+}
 
 func HandleUploadFromExcel(metadataDB *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
@@ -25,6 +38,7 @@ func HandleUploadFromExcel(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// get block info
 		var block core.Block
 		block.ID = uriData.BlockID
 		results := metadataDB.First(&block)
@@ -33,10 +47,19 @@ func HandleUploadFromExcel(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
+		// get table info
 		var table core.Table
 		table.ID = uriData.TableID
 
 		results = metadataDB.First(&table)
+		if results.Error != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": results.Error})
+			return
+		}
+
+		// get columns metadata from database
+		var cols []core.Column
+		results = metadataDB.Where("table_id = ?", table.ID).Order("\"order\" ASC").Find(&cols)
 		if results.Error != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": results.Error})
 			return
@@ -64,94 +87,64 @@ func HandleUploadFromExcel(metadataDB *gorm.DB) gin.HandlerFunc {
 
 		// Assuming the data is in the first sheet
 		rows := excel.GetRows(excel.GetSheetName(1))
-		pckDB, err := db.Create("pck")
+
+		// extract rows
+		exec_cols := rows[0]
+		data_rows := rows[1:]
+
+		// stop if number of columns doesn't match
+		if len(data_rows[0]) != len(cols) {
+			ctx.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+
+		// build the first insert str
+		insert_str := fmt.Sprintf("INSERT INTO %s.%s (%s)", *block.Name, *table.Name, strings.Join(exec_cols[:], ","))
+
+		// build bulk values
+		values_str := "VALUES "
+
+		string_rows := make([]string, len(data_rows))
+		for i, row := range data_rows {
+			string_rows[i] = build_insert(row, cols)
+		}
+
+		values_str += strings.Join(string_rows[:], ",")
+
+		// build conflict string
+		on_conflict := "ON CONFLICT "
+
+		// find primary columns
+		for _, col := range cols {
+			if col.IsPrimary != nil && *col.IsPrimary {
+				on_conflict += " (" + *col.Name + ")"
+				break
+			}
+		}
+
+		// build update string on flict
+		update_str := "DO UPDATE SET "
+		for i, col := range cols {
+			update_str += fmt.Sprintf("%s = EXCLUDED.%s", *col.Name, *col.Name)
+
+			if i < len(cols)-1 {
+				update_str += ", "
+			}
+		}
+
+		// Open connection to unit's database
+		pckDB, err := db.Create(utils.GetUnit(ctx.Request.Header.Get("Origin")))
 		if err != nil {
-			log.Fatal(err)
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
 
-		tx := pckDB.Begin()
-		fmt.Println(tx)
-		fields := make([]string, 0) // Store the field names dynamically
-		lengthField := len(rows[0])
-		for i, row := range rows {
-			if len(row) != lengthField {
-				ctx.JSON(http.StatusBadRequest, gin.H{"Tên cột và các trường dữ liệu không khớp": err.Error()})
-			 	return
-			}
-			if i == 0 {
-				fields = generateCodeList(row)
-				continue
-			}
-			var values []interface{}
-			for j, field := range fields {
-				// Convert the value to the expected data type based on the PostgreSQL table column
-				colValue := row[j]
-				if colValue != "" {
-					if isIntColumn(field) {
-						intValue, err := strconv.Atoi(colValue)
-						if err != nil {
-							ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to convert value to integer"})
-							return
-						}
-						values = append(values, intValue)
-					} else {
-						if colValue == "DEFAULT" {
-							values = append(values, nil) // Use NULL for DEFAULT keyword
-						}else {
-							values = append(values, colValue)
-						}
-					}
-				} else {
-					values = append(values, nil) // Handle empty values as NULL
-				}
-			}
-			insertQuery := fmt.Sprintf("INSERT INTO %s(%s) VALUES ",*block.Name+ "."+*table.Name, strings.Join(fields, ", "))
-			placeholders := make([]string, len(fields))
-			for j := range fields {
-				placeholders[j] = fmt.Sprintf("$%d", j+1)
-			}
-			insertQuery += fmt.Sprintf("(%s)", strings.Join(placeholders, ", "))
-			//fmt.Println("Query: ",insertQuery, values)
-			result := tx.Exec(insertQuery, values...)
-			//fmt.Println(result)
-			if result.Error != nil {
-				// Print the error message if it's not nil
-				fmt.Println("Exec Error:", result.Error.Error())
-				tx.Rollback()
-				return
-			}
+		err = pckDB.Exec(fmt.Sprintf("%s %s %s %s", insert_str, values_str, on_conflict, update_str)).Error
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
 		}
-		if err := tx.Commit().Error; err != nil {
-				fmt.Println("Commit Error:", err.Error())
-				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-				return
-		}
-		ctx.JSON(http.StatusOK, gin.H{"message": "File uploaded and data imported successfully"})
+
+		ctx.AbortWithStatus(http.StatusOK)
 	}
-}
-
-func isIntColumn(columnName string) bool {
-	_, err := strconv.Atoi(columnName)
-	return err == nil
-}
-
-func generateCodeList(input []string) []string {
-	var output []string
-
-	for _, str := range input {
-		words := strings.Fields(str) // Split string into words
-		code := ""
-
-		for _, word := range words {
-			// Convert "Đ" to "d"
-			word = strings.ReplaceAll(word, "Đ", "d")
-			word = strings.ReplaceAll(word, "đ", "d")
-
-			code += string(word[0]) // Take the first character of each word
-		}
-
-		output = append(output, strings.ToLower(code))
-	}
-
-	return output
 }

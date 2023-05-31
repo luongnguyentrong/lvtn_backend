@@ -12,8 +12,8 @@ import (
 )
 
 type deleteInp struct {
-	RefID   *uint `json:"ref_id"`
-	BlockID *uint `json:"block_id"`
+	RefID   *uint `uri:"ref_id"`
+	BlockID *uint `uri:"block_id"`
 }
 
 func HandleDelete(metadataDB *gorm.DB) gin.HandlerFunc {
