@@ -1,6 +1,7 @@
 package blocks
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -75,6 +76,18 @@ func HandleListCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 		pckDB, err := db.Create("pck")
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+
+		err = pckDB.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.criteria (id INTEGER, contents varchar(255))", *block.Name)).Error
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err})
+			return
+		}
+
+		err = pckDB.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.evidences(crit_id INTEGER, id INTEGER, contents TEXT, title VARCHAR(255))", *block.Name)).Error
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err})
 			return
 		}
 
