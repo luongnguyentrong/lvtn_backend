@@ -1,7 +1,7 @@
 package blocks
 
 import (
-	"log"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -12,8 +12,8 @@ import (
 )
 
 type getEvidenceInp struct {
-	BlockID *uint `uri:"block_id"`
-	CritID *uint64 `uri:"crit_id"`
+	BlockID *uint   `uri:"block_id"`
+	CritID  *uint64 `uri:"crit_id"`
 }
 
 func HandleListEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
@@ -25,7 +25,7 @@ func HandleListEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		var block core.Block
-		block.ID = inp.BlockID		
+		block.ID = inp.BlockID
 
 		err = metadataDB.First(&block).Error
 		if err != nil {
@@ -33,17 +33,18 @@ func HandleListEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		//open 
+		//open
 		pckDB, err := db.Create("pck")
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
-		
 
 		var evidences []map[string]interface{}
-		err = pckDB.Raw("SELECT id,contents,title FROM " + *block.Name + ".evidences WHERE crit_id = " + strconv.FormatUint(*inp.CritID,10)+ " ORDER BY id").Scan(&evidences).Error
+		err = pckDB.Raw("SELECT id,contents,title FROM " + *block.Name + ".evidences WHERE crit_id = " + strconv.FormatUint(*inp.CritID, 10) + " ORDER BY id").Scan(&evidences).Error
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
 
 		// Return the items as the API response
@@ -63,7 +64,7 @@ func HandleListCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		var block core.Block
-		block.ID = inp.BlockID		
+		block.ID = inp.BlockID
 
 		err = metadataDB.First(&block).Error
 		if err != nil {
@@ -71,20 +72,32 @@ func HandleListCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		//open 
+		//open
 		pckDB, err := db.Create("pck")
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
-		
+
+		err = pckDB.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.criteria (id INTEGER, contents varchar(255))", *block.Name)).Error
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err})
+			return
+		}
+
+		err = pckDB.Exec(fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s.evidences(crit_id INTEGER, id INTEGER, contents TEXT, title VARCHAR(255))", *block.Name)).Error
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err})
+			return
+		}
 
 		var crits []map[string]interface{}
 		err = pckDB.Raw("SELECT * FROM " + *block.Name + ".criteria").Scan(&crits).Error
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
 
-		
 		// Return the items as the API response
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": crits,

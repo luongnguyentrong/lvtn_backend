@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strconv"
 
@@ -59,7 +58,8 @@ func HandleAddCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 		//open 
 		pckDB, err := db.Create("pck")
 		if err != nil {
-			log.Fatal(err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"Error": err.Error()})
+			 	return
 		}
 		
 		sql := "INSERT INTO " + *block.Name +".criteria(id,contents) VALUES(" +  strconv.Itoa(inpBody.Id) + `, '`+ inpBody.Contents +`')`
@@ -110,7 +110,8 @@ func HandleAddEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 		//open 
 		pckDB, err := db.Create("pck")
 		if err != nil {
-			log.Fatal(err)
+			ctx.JSON(http.StatusBadRequest, gin.H{"Tên cột và các trường dữ liệu không khớp": err.Error()})
+			return
 		}
 		
 		sql := "INSERT INTO " + *block.Name +".evidences(crit_id,id,contents,title) VALUES(" + strconv.Itoa(int(*inp.CritID))+ `, `+  strconv.Itoa(inpBody.Id) + `, '`+ inpBody.Contents +`', '` + inpBody.Title+ `')`
