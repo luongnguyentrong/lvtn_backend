@@ -1,7 +1,6 @@
 package blocks
 
 import (
-	"log"
 	"net/http"
 	"strconv"
 
@@ -12,8 +11,8 @@ import (
 )
 
 type getEvidenceInp struct {
-	BlockID *uint `uri:"block_id"`
-	CritID *uint64 `uri:"crit_id"`
+	BlockID *uint   `uri:"block_id"`
+	CritID  *uint64 `uri:"crit_id"`
 }
 
 func HandleListEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
@@ -25,7 +24,7 @@ func HandleListEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		var block core.Block
-		block.ID = inp.BlockID		
+		block.ID = inp.BlockID
 
 		err = metadataDB.First(&block).Error
 		if err != nil {
@@ -33,17 +32,18 @@ func HandleListEvidence(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		//open 
+		//open
 		pckDB, err := db.Create("pck")
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
-		
 
 		var evidences []map[string]interface{}
-		err = pckDB.Raw("SELECT id,contents,title FROM " + *block.Name + ".evidences WHERE crit_id = " + strconv.FormatUint(*inp.CritID,10)+ " ORDER BY id").Scan(&evidences).Error
+		err = pckDB.Raw("SELECT id,contents,title FROM " + *block.Name + ".evidences WHERE crit_id = " + strconv.FormatUint(*inp.CritID, 10) + " ORDER BY id").Scan(&evidences).Error
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
 
 		// Return the items as the API response
@@ -63,7 +63,7 @@ func HandleListCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		var block core.Block
-		block.ID = inp.BlockID		
+		block.ID = inp.BlockID
 
 		err = metadataDB.First(&block).Error
 		if err != nil {
@@ -71,20 +71,20 @@ func HandleListCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		//open 
+		//open
 		pckDB, err := db.Create("pck")
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
-		
 
 		var crits []map[string]interface{}
 		err = pckDB.Raw("SELECT * FROM " + *block.Name + ".criteria").Scan(&crits).Error
 		if err != nil {
-			log.Fatal(err)
+			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
 		}
 
-		
 		// Return the items as the API response
 		ctx.JSON(http.StatusOK, gin.H{
 			"body": crits,
