@@ -13,11 +13,55 @@ func HandleList(metadataDB *gorm.DB, keycloakDB *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
 		var blocks []core.Block
 
-		// get blocks from metadata
-		results := metadataDB.Where("unit_name = ?", utils.GetUnit(ctx.Request.Header.Get("Origin"))).Find(&blocks)
-		if results.Error != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error.Error()})
+		// get requesting user
+		raw, exists := ctx.Get("user")
+		user := raw.(core.User)
+
+		if !exists {
+			ctx.AbortWithStatus(http.StatusInternalServerError)
 			return
+		}
+
+		all_blocks := false
+		for _, role := range user.Roles {
+			if role == "unit_admin" || role == "admin" {
+				all_blocks = true
+				break
+			}
+		}
+
+		block_access := []string{}
+		if !all_blocks {
+			var access core.BlockAccess
+			access.UserID = user.ID
+
+			err := metadataDB.First(&access).Error
+			if err != nil {
+				ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err})
+				return
+			}
+
+			block_access = *access.BlockIDs
+		}
+
+		// get blocks from metadata
+		if !all_blocks {
+			results := metadataDB.
+				Where("unit_name = ?", utils.GetUnit(ctx.Request.Header.Get("Origin"))).
+				Where("name IN ", block_access).
+				Find(&blocks)
+
+			if results.Error != nil {
+				ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error.Error()})
+				return
+			}
+		} else {
+			results := metadataDB.Where("unit_name = ?", utils.GetUnit(ctx.Request.Header.Get("Origin"))).Find(&blocks)
+
+			if results.Error != nil {
+				ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error.Error()})
+				return
+			}
 		}
 
 		for i, block := range blocks {
