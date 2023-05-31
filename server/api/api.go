@@ -71,7 +71,7 @@ func Handlers() *gin.Engine {
 		requestsRoute.GET("/", middleware.AllowedRoles("admin"), requests.HandleList(metadataDB, keycloakDB))
 
 		requestDetails := requestsRoute.Group("/:request_id")
-		requestDetails.POST("/approve", requests.HandleApprove(metadataDB))
+		requestDetails.PUT("/", requests.HandleUpdate(metadataDB))
 	}
 
 	// blocks rest apis

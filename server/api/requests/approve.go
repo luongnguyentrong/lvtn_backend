@@ -8,22 +8,51 @@ import (
 	"gorm.io/gorm"
 )
 
-func HandleApprove(metadataDB *gorm.DB) gin.HandlerFunc {
+type uriData struct {
+	RequestID *uint `uri:"request_id"`
+}
+
+type updateInp struct {
+	Status *string `json:"status" binding:"required"`
+}
+
+func HandleUpdate(metadataDB *gorm.DB) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var requests []core.Request
-		results := metadataDB.Find(&requests)
-		if results.Error != nil {
-			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": results.Error.Error()})
+		// get uri params
+		var uri uriData
+
+		err := ctx.ShouldBindUri(&uri)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
 			return
 		}
 
-		// create unit realm in keycloak
+		// decode request body
+		var inp updateInp
 
-		// provision database for unit
+		err = ctx.Bind(&inp)
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
 
-		// provision superset
+		// update request status
+		var request core.Request
+		request.ID = uri.RequestID
 
+		err = metadataDB.First(&request).Error
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
 
-		ctx.JSON(http.StatusOK, requests)
+		request.Status = inp.Status
+		err = metadataDB.Save(&request).Error
+		if err != nil {
+			ctx.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": err.Error()})
+			return
+		}
+
+		ctx.AbortWithStatus(http.StatusOK)
 	}
 }

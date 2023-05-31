@@ -7,7 +7,7 @@ import (
 
 func GetUnit(host string) string {
 	if os.Getenv("ENVIROMENT") == "development" {
-		return "pck"
+		return "master"
 	}
 
 	unitName := strings.TrimPrefix(host, "https://")
