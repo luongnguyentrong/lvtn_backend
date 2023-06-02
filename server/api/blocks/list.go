@@ -30,7 +30,7 @@ func HandleList(metadataDB *gorm.DB, keycloakDB *gorm.DB) gin.HandlerFunc {
 			}
 		}
 
-		block_access := []string{}
+		// get blocks from metadata
 		if !all_blocks {
 			var access core.BlockAccess
 			access.UserID = user.ID
@@ -41,14 +41,9 @@ func HandleList(metadataDB *gorm.DB, keycloakDB *gorm.DB) gin.HandlerFunc {
 				return
 			}
 
-			block_access = *access.BlockIDs
-		}
-
-		// get blocks from metadata
-		if !all_blocks {
 			results := metadataDB.
 				Where("unit_name = ?", utils.GetUnit(ctx.Request.Header.Get("Origin"))).
-				Where("name IN ", block_access).
+				Where("name IN ?", *access.BlockIDs).
 				Find(&blocks)
 
 			if results.Error != nil {
