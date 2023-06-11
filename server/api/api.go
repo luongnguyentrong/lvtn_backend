@@ -1,7 +1,11 @@
 package api
 
 import (
+	"log"
+	"net/http"
+
 	"api.ducluong.monster/api/blocks"
+	"api.ducluong.monster/api/blocks/criteria"
 	"api.ducluong.monster/api/blocks/folders"
 	"api.ducluong.monster/api/blocks/references"
 	"api.ducluong.monster/api/blocks/tables"
@@ -17,8 +21,6 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"log"
-	"net/http"
 )
 
 func enableCors(router *gin.Engine) {
@@ -84,6 +86,11 @@ func Handlers() *gin.Engine {
 		blocksRoute.DELETE("/:block_id", blocks.HandleDelete(metadataDB))
 		blocksRoute.PUT("/:block_id", blocks.HandleUpdate(metadataDB))
 		blocksRoute.GET("/:block_id/criteria/get", blocks.HandleListCriteria(metadataDB))
+
+		// criteria rest apis 
+		criteriaRoutes := blocksRoute.Group("/:block_id/criteria")
+		criteriaRoutes.GET("/export", criteria.HandleExport(metadataDB))
+
 		blocksRoute.GET("/:block_id/criteria/:crit_id/get", blocks.HandleListEvidence(metadataDB))
 		blocksRoute.POST("/:block_id/criteria/add", blocks.HandleAddCriteria(metadataDB))
 		blocksRoute.POST("/:block_id/criteria/:crit_id/source/add", blocks.HandleAddEvidence(metadataDB))
@@ -118,7 +125,6 @@ func Handlers() *gin.Engine {
 			foldersRoute.GET("/add/:new_folder_name", folders.HandleAdd(metadataDB))
 			foldersRoute.POST("/:folder_name/upload", folders.HandleUploadFile(metadataDB))
 		}
-
 	}
 
 	// units rest apis

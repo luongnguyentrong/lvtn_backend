@@ -8,6 +8,7 @@ import (
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/shared/db"
 	"api.ducluong.monster/utils"
+	"github.com/lib/pq"
 	"github.com/360EntSecGroup-Skylar/excelize"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -18,7 +19,8 @@ func build_insert(row []string, cols []core.Column) string {
 
 	for i, col := range row {
 		if strings.Contains(*cols[i].ColumnType, "varchar") {
-			arr = append(arr, fmt.Sprintf("'%s'", col))
+			quoted_str := pq.QuoteLiteral(col)
+			arr = append(arr, quoted_str)
 		} else {
 			arr = append(arr, col)
 		}
@@ -91,12 +93,6 @@ func HandleUploadFromExcel(metadataDB *gorm.DB) gin.HandlerFunc {
 		// extract rows
 		exec_cols := rows[0]
 		data_rows := rows[1:]
-
-		// stop if number of columns doesn't match
-		if len(data_rows[0]) != len(cols) {
-			ctx.AbortWithStatus(http.StatusBadRequest)
-			return
-		}
 
 		// build the first insert str
 		insert_str := fmt.Sprintf("INSERT INTO %s.%s (%s)", *block.Name, *table.Name, strings.Join(exec_cols[:], ","))

@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+
 	"api.ducluong.monster/core"
+	"api.ducluong.monster/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -16,7 +18,7 @@ import (
 
 type AddInp struct {
 	NewFolderName *string `uri:"new_folder_name"`
-	BlockID *uint `uri:"block_id"`
+	BlockID       *uint   `uri:"block_id"`
 }
 
 func HandleAdd(metadataDB *gorm.DB) gin.HandlerFunc {
@@ -30,7 +32,7 @@ func HandleAdd(metadataDB *gorm.DB) gin.HandlerFunc {
 		}
 
 		var block core.Block
-		block.ID = inp.BlockID		
+		block.ID = inp.BlockID
 
 		err = metadataDB.First(&block).Error
 		if err != nil {
@@ -38,16 +40,16 @@ func HandleAdd(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		bucketName := "pckstorage"
+		bucketName := fmt.Sprintf("%s-storage", utils.GetUnit(ctx.Request.Header.Get("Origin")))
+
 		folderPath := *block.Name + "/"
-		//folderPath += *inp.FolderName + "/"
-		folderPath += *inp.NewFolderName+"/"
+		folderPath += *inp.NewFolderName + "/"
 
 		params := &s3.PutObjectInput{
-			Bucket:    aws.String(bucketName),
-			Key:       aws.String(folderPath),
+			Bucket: aws.String(bucketName),
+			Key:    aws.String(folderPath),
 		}
-		
+
 		cfg, err := config.LoadDefaultConfig(context.TODO(),
 			config.WithCredentialsProvider(credentials.NewStaticCredentialsProvider(os.Getenv("AWS_ACCESS_KEY_ID"), os.Getenv("AWS_SECRET_ACCESS_KEY"), "")),
 		)
@@ -56,7 +58,7 @@ func HandleAdd(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		client := s3.NewFromConfig(cfg)
-		
+
 		// Call the API
 		_, err = client.PutObject(context.TODO(), params)
 		if err != nil {
