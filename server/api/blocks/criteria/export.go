@@ -8,6 +8,7 @@ import (
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/shared/db"
 	"api.ducluong.monster/utils"
+	md "github.com/JohannesKaufmann/html-to-markdown"
 	"github.com/gin-gonic/gin"
 	"github.com/johnfercher/maroto/pkg/color"
 	"github.com/johnfercher/maroto/pkg/consts"
@@ -163,9 +164,12 @@ func HandleExport(metadataDB *gorm.DB) gin.HandlerFunc {
 		// create a pdf instance
 		pdf := init_maroto(unit, block)
 
+		// init a html to markdown converter
+		converter := md.NewConverter("", true, nil)
+
 		// insert criteria to pdf instance
 		for _, crit := range criterias {
-			pdf.Row(15, func() {
+			pdf.Row(20, func() {
 				pdf.Col(12, func() {
 					pdf.Text(fmt.Sprintf("Tiêu chí %d. %s:", *crit.ID, *crit.Contents), props.Text{
 						Top:   8,
@@ -177,11 +181,27 @@ func HandleExport(metadataDB *gorm.DB) gin.HandlerFunc {
 			})
 
 			for _, evidence := range crit.Evidences {
+				// convert evidence's contents to markdown
+				markdown, err := converter.ConvertString(*evidence.Contents)
+				if err != nil {
+					ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+					return
+				}
+
 				pdf.Row(40, func() {
 					pdf.Col(11, func() {
-						pdf.Text(*evidence.Contents, props.Text{
+						pdf.Text(fmt.Sprintf("Dẫn chứng %d", *evidence.ID), props.Text{
 							Size:            12,
 							Align:           consts.Left,
+							Style:           consts.BoldItalic,
+							VerticalPadding: 1.3,
+						})
+
+						pdf.Text(strings.ReplaceAll(markdown, "\n", ""), props.Text{
+							Top:             12,
+							Size:            12,
+							Align:           consts.Left,
+							Extrapolate:     true,
 							VerticalPadding: 1.3,
 						})
 					})
