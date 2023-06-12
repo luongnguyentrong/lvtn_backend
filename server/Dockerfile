@@ -9,8 +9,10 @@ COPY ./ ./
 RUN CGO_ENABLED=0 GOOS=linux go build -o server
 
 FROM alpine:3.17.2
-WORKDIR /
+WORKDIR /api
 COPY --from=build /api/server .
+COPY --from=build /api/Montserrat ./Montserrat/
+COPY --from=build /api/logo.png .
 
 ENV PORT=5000
 ENV KEYCLOAK_HOST=https://sso.ducluong.monster
