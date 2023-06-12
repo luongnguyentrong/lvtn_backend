@@ -83,7 +83,7 @@ func CreateUnit(ctx context.Context, unit *core.Unit, client *gocloak.GoCloak, a
 		StandardFlowEnabled:       gocloak.BoolP(true),
 		DirectAccessGrantsEnabled: gocloak.BoolP(true),
 		WebOrigins: &[]string{
-			fmt.Sprintf("https://%s.superset.ducluong.monster", *unit.Name),
+			fmt.Sprintf("http://%s.superset.ducluong.monster", *unit.Name),
 		}})
 
 	if err != nil {

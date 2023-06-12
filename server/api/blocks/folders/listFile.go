@@ -15,6 +15,7 @@ import (
 	// "os"
 
 	"api.ducluong.monster/core"
+	"api.ducluong.monster/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -45,8 +46,7 @@ func HandleListFile(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 		//open 
-
-		bucketName := "pckstorage"
+		bucketName := fmt.Sprintf("%sstorage", utils.GetUnit(ctx.Request.Header.Get("Origin")))
 		folderPath := *block.Name + "/"
 		folderPath += *inp.FolderName + "/"
 		fmt.Println(folderPath)

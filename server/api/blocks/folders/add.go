@@ -40,7 +40,7 @@ func HandleAdd(metadataDB *gorm.DB) gin.HandlerFunc {
 			return
 		}
 
-		bucketName := fmt.Sprintf("%s-storage", utils.GetUnit(ctx.Request.Header.Get("Origin")))
+		bucketName := fmt.Sprintf("%sstorage", utils.GetUnit(ctx.Request.Header.Get("Origin")))
 
 		folderPath := *block.Name + "/"
 		folderPath += *inp.NewFolderName + "/"

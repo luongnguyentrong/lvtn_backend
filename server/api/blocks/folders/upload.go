@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"api.ducluong.monster/core"
+	"api.ducluong.monster/utils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -55,11 +56,11 @@ func HandleUploadFile(metadataDB *gorm.DB) gin.HandlerFunc {
 		//fmt.Println("B: ",b)
 		client := s3.NewFromConfig(cfg)
 		uploader := manager.NewUploader(client)
-		//fmt.Println(uploader,f)
 		objectKey := *block.Name + "/" + *inp.FolderName + "/" + file.Filename
-		fmt.Println("file name", f)
+
+		bucket_name := fmt.Sprintf("%sstorage", utils.GetUnit(ctx.Request.Header.Get("Origin")))
 		result, err := uploader.Upload(context.TODO(), &s3.PutObjectInput{ 
-			Bucket: aws.String("pckstorage"),
+			Bucket: aws.String(bucket_name),
 			Key:    aws.String(objectKey),
 			Body:   f,
 		})

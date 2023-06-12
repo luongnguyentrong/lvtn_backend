@@ -7,6 +7,7 @@ import (
 
 	"api.ducluong.monster/core"
 	"api.ducluong.monster/shared/db"
+	"api.ducluong.monster/utils"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 )
@@ -73,7 +74,8 @@ func HandleListCriteria(metadataDB *gorm.DB) gin.HandlerFunc {
 		}
 
 		//open
-		pckDB, err := db.Create("pck")
+		cur_unit := utils.GetUnit(ctx.Request.Header.Get("Origin"))
+		pckDB, err := db.Create(cur_unit)
 		if err != nil {
 			ctx.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
 			return
